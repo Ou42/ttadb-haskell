@@ -18,6 +18,8 @@ import GHC.Generics (Generic)
 import qualified Network.HTTP.Types.Status as Status
 import qualified Text.Blaze.Html
 import qualified Text.Blaze.Html5 as HTML
+import qualified Text.Blaze.Html5.Attributes as Attributes
+import Text.Blaze.Html5 ((!))
 import Text.Blaze.Html.Renderer.Text (renderHtml)
 
 data ToDo = ToDo { id :: Int, todo :: Text.Text }
@@ -47,12 +49,16 @@ main = DB.withConnection "ttadb.db" $ \conn -> do
                     HTML.ul $ do
                       mapM_ (HTML.li . HTML.toMarkup . todo) todos
 
+                    HTML.form ! Attributes.action "/" ! Attributes.method "post" $ do
+                        HTML.input ! Attributes.type_ "text" ! Attributes.name "todo"
+                        HTML.input ! Attributes.type_ "submit" -- calls post on "/"
+
         Scotty.post "/" $ do
             todo <- Scotty.param "todo"
             Scotty.liftAndCatchIO $
                 DB.execute conn [sql|insert into todos (todo) values (?);|] (DB.Only todo :: DB.Only Text.Text)
-
-            -- Scotty.status Status.status200
+            
+            Scotty.redirect "/"
 
         Scotty.post "/:id" $ do
             id <- Scotty.param "id"
@@ -69,14 +75,18 @@ main = DB.withConnection "ttadb.db" $ \conn -> do
 
         Scotty.get "/:id" $ do
             id <- Scotty.param "id"
-            todo <- Scotty.liftAndCatchIO $
+            todos <- Scotty.liftAndCatchIO $
                 DB.queryNamed conn [sql|select * from todos where id=:id;|]
                     [ ":id" := (id :: Int) ] :: Scotty.ActionM [ToDo]
-            if null todo
+            if null todos
                 then
                     Scotty.status Status.status404
                 else
-                    Scotty.html $ "<h1>" <> Text.Lazy.pack (show todo) <> "</h1>"
-
+                    -- Scotty.html $ "<h1>" <> Text.Lazy.pack (show todo) <> "</h1>"
+                    Scotty.html $ renderHtml $ HTML.html $ do
+                                    HTML.head $ do
+                                        HTML.title $ mapM_ (HTML.toMarkup . todo) todos
+                                    HTML.body $ do
+                                        HTML.h1 $ mapM_ (HTML.toMarkup . todo) todos
 
     -- DB.close conn
