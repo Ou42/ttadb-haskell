@@ -18,6 +18,7 @@ import GHC.Generics (Generic)
 import qualified Network.HTTP.Types.Status as Status
 import qualified Text.Blaze.Html
 import qualified Text.Blaze.Html5 as HTML
+import Text.Blaze.Html.Renderer.Text (renderHtml)
 
 data ToDo = ToDo { id :: Int, todo :: Text.Text }
   deriving (Generic, FromRow, Show)
@@ -37,7 +38,12 @@ main = DB.withConnection "ttadb.db" $ \conn -> do
             -- Scotty.html "<h1>hello!</h1>"
             todos <- Scotty.liftAndCatchIO $
                          DB.query_ conn [sql|select id, todo from todos;|] :: Scotty.ActionM [ToDo]
-            Scotty.html $ "<h1>" <> Text.Lazy.pack (show todos) <> "</h1>"
+            -- Scotty.html $ "<h1>" <> Text.Lazy.pack (show todos) <> "</h1>"
+            Scotty.html $ renderHtml $ HTML.html $ do
+                HTML.head $ do
+                    HTML.title "Talk to a Database | To-Do's"
+                HTML.body $ do
+                    HTML.h1 $ HTML.toMarkup $ show todos
 
         Scotty.post "/" $ do
             todo <- Scotty.param "todo"
