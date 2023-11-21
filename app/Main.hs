@@ -2,6 +2,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE NamedFieldPuns #-}
 
 module Main where
 
@@ -21,6 +22,7 @@ import qualified Text.Blaze.Html5 as HTML
 import qualified Text.Blaze.Html5.Attributes as Attributes
 import Text.Blaze.Html5 ((!))
 import Text.Blaze.Html.Renderer.Text (renderHtml)
+import Data.Foldable (for_)
 
 data ToDo = ToDo { id :: Int, todo :: Text.Text }
   deriving (Generic, FromRow, Show)
@@ -47,7 +49,9 @@ main = DB.withConnection "ttadb.db" $ \conn -> do
                 HTML.body $ do
                     HTML.h1 "To-Do's"
                     HTML.ul $ do
-                      mapM_ (HTML.li . HTML.toMarkup . todo) todos
+                      for_ todos $ \ToDo {todo} -> do
+                        HTML.li $ do
+                            HTML.toMarkup todo
 
                     HTML.form ! Attributes.action "/" ! Attributes.method "post" $ do
                         HTML.input ! Attributes.type_ "text" ! Attributes.name "todo"
