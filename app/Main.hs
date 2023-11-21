@@ -29,7 +29,6 @@ data ToDo = ToDo { id :: Int, todo :: Text.Text }
 
 main :: IO ()
 main = DB.withConnection "ttadb.db" $ \conn -> do
-    -- conn <- DB.open "ttadb.db" -- with conn ( later )
 
     DB.execute_ conn [sql|create table if not exists todos
                           ( id integer primary key autoincrement
@@ -39,7 +38,6 @@ main = DB.withConnection "ttadb.db" $ \conn -> do
     Scotty.scotty 4242 $ do
 
         Scotty.get "/" $ do
-            -- Scotty.html "<h1>hello!</h1>"
             todos <- Scotty.liftAndCatchIO $
                          DB.query_ conn [sql|select id, todo from todos;|] :: Scotty.ActionM [ToDo]
 
@@ -48,6 +46,8 @@ main = DB.withConnection "ttadb.db" $ \conn -> do
                     HTML.title "Talk to a Database | To-Do's"
                     HTML.style $ do
                         "a { text-decoration: none; color: white; }"
+                    HTML.script $ do
+                        "const deleteToDo = b => { console.log(b.value); }"
                 HTML.body $ do
                     HTML.h1 "To-Do's"
                     HTML.ul $ do
@@ -55,6 +55,10 @@ main = DB.withConnection "ttadb.db" $ \conn -> do
                         HTML.li $ do
                             HTML.a ! Attributes.href ("/" <> HTML.toValue id) $ do
                                 HTML.toMarkup todo
+                            HTML.button ! Attributes.type_ "button"
+                                        ! Attributes.value (HTML.toValue id)
+                                        ! Attributes.onclick "deleteToDo(this)" $ do
+                                "delete id:" <> HTML.toMarkup id
 
                     HTML.form ! Attributes.action "/" ! Attributes.method "post" $ do
                         HTML.input ! Attributes.type_ "text" ! Attributes.name "todo"
