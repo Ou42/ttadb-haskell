@@ -49,9 +49,10 @@ main = DB.withConnection "ttadb.db" $ \conn -> do
                 HTML.body $ do
                     HTML.h1 "To-Do's"
                     HTML.ul $ do
-                      for_ todos $ \ToDo {todo} -> do
+                      for_ todos $ \ToDo {id, todo} -> do
                         HTML.li $ do
-                            HTML.toMarkup todo
+                            HTML.a ! Attributes.href ("/" <> HTML.toValue id) $ do
+                                HTML.toMarkup todo
 
                     HTML.form ! Attributes.action "/" ! Attributes.method "post" $ do
                         HTML.input ! Attributes.type_ "text" ! Attributes.name "todo"
