@@ -46,6 +46,8 @@ main = DB.withConnection "ttadb.db" $ \conn -> do
             Scotty.html $ renderHtml $ HTML.html $ do
                 HTML.head $ do
                     HTML.title "Talk to a Database | To-Do's"
+                    HTML.style $ do
+                        "a { text-decoration: none; color: white; }"
                 HTML.body $ do
                     HTML.h1 "To-Do's"
                     HTML.ul $ do
