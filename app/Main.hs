@@ -47,7 +47,8 @@ main = DB.withConnection "ttadb.db" $ \conn -> do
                     HTML.style $ do
                         "a { text-decoration: none; color: white; }"
                     HTML.script $ do
-                        "const deleteToDo = b => { console.log(b.value); }"
+                        "const deleteToDo = b => { fetch(`/${b.value}`, { method: 'DELETE' })\
+                        \ .then(r => b.parentElement.remove()); }"
                 HTML.body $ do
                     HTML.h1 "To-Do's"
                     HTML.ul $ do
