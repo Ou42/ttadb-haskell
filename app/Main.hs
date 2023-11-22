@@ -44,15 +44,21 @@ main = DB.withConnection "ttadb.db" $ \conn -> do
             Scotty.html $ renderHtml $ HTML.html $ do
                 HTML.head $ do
                     HTML.title "Talk to a Database | To-Do's"
+
                     HTML.style $ do
                         "a { text-decoration: none; color: white; }\
                         \li { background-color: cornflowerblue; }\
                         \.flex-container { display: flex; }\
                         \.flex-container a { flex: 0 0 33%; background-color: lightslategray; }\
                         \.flex-container button { align-self: flex-start; }"
+
                     HTML.script $ do
                         "const deleteToDo = b => { fetch(`/${b.value}`, { method: 'DELETE' })\
-                        \ .then(r => b.parentElement.remove()); }"
+                        \ .then(r => b.parentElement.remove()); };\
+                        \const updateToDo = b => { window.location.href = `/edit/${b.value}`; } // Simulate a mouse click"
+                        -- \const updateToDo = b => { fetch(`/edit/${b.value}`, { method: 'GET' }) }" -- \
+                        -- \ .then( console.log('Hello!'); ); }"
+
                 HTML.body $ do
                     HTML.h1 "To-Do's"
                     HTML.ul $ do
@@ -78,7 +84,7 @@ main = DB.withConnection "ttadb.db" $ \conn -> do
             todo <- Scotty.param "todo"
             Scotty.liftAndCatchIO $
                 DB.execute conn [sql|insert into todos (todo) values (?);|] (DB.Only todo :: DB.Only Text.Text)
-            
+
             Scotty.redirect "/"
 
         Scotty.post "/:id" $ do
@@ -109,5 +115,29 @@ main = DB.withConnection "ttadb.db" $ \conn -> do
                                         HTML.title $ mapM_ (HTML.toMarkup . todo) todos
                                     HTML.body $ do
                                         HTML.h1 $ mapM_ (HTML.toMarkup . todo) todos
+
+        Scotty.get "/edit/:id" $ do
+            id <- Scotty.param "id"
+            todos <- Scotty.liftAndCatchIO $
+                DB.queryNamed conn [sql|select * from todos where id=:id;|]
+                    [ ":id" := (id :: Int) ] :: Scotty.ActionM [ToDo]
+            if null todos
+                then
+                    Scotty.status Status.status404
+                else
+                    Scotty.html $ renderHtml $ HTML.html $ do
+                                    HTML.head $ do
+                                        HTML.title $ mapM_ (HTML.toMarkup . todo) todos
+                                    HTML.body $ do
+                                        HTML.h1 $ HTML.toMarkup (Text.pack "Editing: ")
+                                                <> mapM_ (HTML.toMarkup . todo) todos
+                                        HTML.ol $ do
+                                            HTML.li $ do
+                                                HTML.toMarkup (Text.pack "Create Form")
+                                            HTML.li $ do
+                                                HTML.toMarkup (Text.pack "'on submit', Check if change made to item")
+                                            HTML.li $ do
+                                                HTML.toMarkup (Text.pack "If Change made, update database")
+
 
     -- DB.close conn
