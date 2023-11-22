@@ -45,7 +45,11 @@ main = DB.withConnection "ttadb.db" $ \conn -> do
                 HTML.head $ do
                     HTML.title "Talk to a Database | To-Do's"
                     HTML.style $ do
-                        "a { text-decoration: none; color: white; }"
+                        "a { text-decoration: none; color: white; }\
+                        \\\li { display: block; }\
+                        \.divcell1 { display: inline; float: left; width: 33%; border: 1px solid cornflowerblue; }\
+                        \.divcell2 { display: inline; float: left; width: 100px; border: 1px solid red; }\
+                        \.divcell3 { display: inline; float: left; width: 100px; border: 1px solid green; }"
                     HTML.script $ do
                         "const deleteToDo = b => { fetch(`/${b.value}`, { method: 'DELETE' })\
                         \ .then(r => b.parentElement.remove()); }"
@@ -54,12 +58,20 @@ main = DB.withConnection "ttadb.db" $ \conn -> do
                     HTML.ul $ do
                       for_ todos $ \ToDo {id, todo} -> do
                         HTML.li $ do
-                            HTML.a ! Attributes.href ("/" <> HTML.toValue id) $ do
-                                HTML.toMarkup todo
-                            HTML.button ! Attributes.type_ "button"
-                                        ! Attributes.value (HTML.toValue id)
-                                        ! Attributes.onclick "deleteToDo(this)" $ do
-                                "delete id:" <> HTML.toMarkup id
+                            HTML.div $ do
+                                HTML.div ! Attributes.class_ "divcell1" $ do
+                                    HTML.a ! Attributes.href ("/" <> HTML.toValue id) $ do
+                                        HTML.toMarkup todo
+                                HTML.div ! Attributes.class_ "divcell2" $ do
+                                    HTML.button ! Attributes.type_ "button"
+                                                ! Attributes.value (HTML.toValue id)
+                                                ! Attributes.onclick "deleteToDo(this)" $ do
+                                        "delete id:" <> HTML.toMarkup id
+                                HTML.div ! Attributes.class_ "divcell3" $ do
+                                    HTML.button ! Attributes.type_ "button"
+                                                ! Attributes.value (HTML.toValue id)
+                                                ! Attributes.onclick "updateToDo(this)" $ do
+                                        "update id:" <> HTML.toMarkup id
 
                     HTML.form ! Attributes.action "/" ! Attributes.method "post" $ do
                         HTML.input ! Attributes.type_ "text" ! Attributes.name "todo"
