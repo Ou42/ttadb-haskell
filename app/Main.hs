@@ -50,122 +50,120 @@ formName :: Show a => a -> String
 formName id = "editform" <> show id
 
 main :: IO ()
-main = DB.withConnection "ttadb.db" $ \conn -> do
+main = do
+    jsFile <- readFile "app/utils.js"
 
-    DB.execute_ conn [sql|create table if not exists todos
-                          ( id integer primary key autoincrement
-                          , todo text
-                          );|] -- between [sql| ... |] is a quasi-quoter, this is SQL not Haskell
+    DB.withConnection "ttadb.db" $ \conn -> do
 
-    Scotty.scotty 4242 $ do
+        DB.execute_ conn [sql|create table if not exists todos
+                            ( id integer primary key autoincrement
+                            , todo text
+                            );|] -- between [sql| ... |] is a quasi-quoter, this is SQL not Haskell
 
-        Scotty.get "/" $ do
-            todos <- Scotty.liftAndCatchIO $
-                         DB.query_ conn [sql|select id, todo from todos;|] :: Scotty.ActionM [ToDo]
+        Scotty.scotty 4242 $ do
 
-            Scotty.html $ renderHtml $ HTML.html $ do
-                HTML.head $ do
-                    HTML.title "Talk to a Database | To-Do's"
+            Scotty.get "/" $ do
+                todos <- Scotty.liftAndCatchIO $
+                            DB.query_ conn [sql|select id, todo from todos;|] :: Scotty.ActionM [ToDo]
 
-                    HTML.style $ do
-                        "a { text-decoration: none; color: white; }\
-                        \li { background-color: cornflowerblue; }\
-                        \.flex-container { display: flex; }\
-                        \.flex-container a { flex: 0 0 33%; background-color: lightslategray; }\
-                        \.flex-container button { align-self: flex-start; }"
+                Scotty.html $ renderHtml $ HTML.html $ do
+                    HTML.head $ do
+                        HTML.title "Talk to a Database | To-Do's"
 
-                    HTML.script $ do
-                        -- // JS funcs called when buttons clicked
-                        "const deleteToDo = b => { fetch(`/${b.value}`, { method: 'DELETE' })\
-                        \ .then(r => b.parentElement.remove()); };\
-                        \const toggleVisUpdateForm = b => { console.log(`/edit/${b.value}`);   var x = document.getElementById(`editform${b.value}`); if (x.style.display === 'none') { x.style.display = 'block'; } else { x.style.display = 'none'; } };\
-                        \const updateToDo = b => { window.location.href = `/edit/${b.value}`; };"
-                        -- \const updateToDo = b => { fetch(`/edit/${b.value}`, { method: 'GET' }) }" -- \
-                        -- \ .then( console.log('Hello!'); ); }"
+                        HTML.style $ do
+                            "a { text-decoration: none; color: white; }\
+                            \li { background-color: cornflowerblue; }\
+                            \.flex-container { display: flex; }\
+                            \.flex-container a { flex: 0 0 33%; background-color: lightslategray; }\
+                            \.flex-container button { align-self: flex-start; }"
 
-                HTML.body $ do
-                    HTML.h1 "To-Do's"
-                    HTML.ul $ do
-                      for_ todos $ \ToDo {id, todo} -> do
-                        HTML.li $ do
-                            HTML.div ! Attributes.class_ "flex-container" $ do
-                                HTML.a ! Attributes.href ("/" <> HTML.toValue id) $ do
-                                        HTML.toMarkup todo
-                                HTML.button ! Attributes.type_ "button"
-                                            ! Attributes.value (HTML.toValue id)
-                                            ! Attributes.onclick "deleteToDo(this)" $ do
-                                    "delete id:" <> HTML.toMarkup id
-                                HTML.button ! Attributes.type_ "button"
-                                            ! Attributes.value (HTML.toValue id)
-                                            ! Attributes.onclick "updateToDo(this)" $ do
-                                    "update id:" <> HTML.toMarkup id
-                                HTML.button ! Attributes.type_ "button"
-                                            ! Attributes.value (HTML.toValue id)
-                                            ! Attributes.onclick "toggleVisUpdateForm(this)" $ do
-                                    "update id: " <> HTML.toMarkup id <> " on page"
-                                HTML.p ! Attributes.id (HTML.toValue (formName id)) $ "booyah!"
+                        HTML.script $ do
+                            -- // JS funcs called when buttons clicked
+                            HTML.toMarkup jsFile
 
-                    HTML.form ! Attributes.action "/" ! Attributes.method "post" $ do
-                        HTML.input ! Attributes.type_ "text" ! Attributes.name "todo"
-                        HTML.input ! Attributes.type_ "submit" -- calls post on "/"
+                    HTML.body $ do
+                        HTML.h1 "To-Do's"
+                        HTML.ul $ do
+                            for_ todos $ \ToDo {id, todo} -> do
+                                HTML.li $ do
+                                    HTML.div ! Attributes.class_ "flex-container" $ do
+                                        HTML.a ! Attributes.href ("/" <> HTML.toValue id) $ do
+                                                HTML.toMarkup todo
+                                        HTML.button ! Attributes.type_ "button"
+                                                    ! Attributes.value (HTML.toValue id)
+                                                    ! Attributes.onclick "deleteToDo(this)" $ do
+                                            "delete id:" <> HTML.toMarkup id
+                                        HTML.button ! Attributes.type_ "button"
+                                                    ! Attributes.value (HTML.toValue id)
+                                                    ! Attributes.onclick "updateToDo(this)" $ do
+                                            "update id:" <> HTML.toMarkup id
+                                        HTML.button ! Attributes.type_ "button"
+                                                    ! Attributes.value (HTML.toValue id)
+                                                    ! Attributes.onclick "toggleVisUpdateForm(this)" $ do
+                                            "update id: " <> HTML.toMarkup id <> " on page"
+                                        HTML.p ! Attributes.id (HTML.toValue (formName id)) $ "booyah!"
 
-        Scotty.post "/" $ do
-            todo <- Scotty.param "todo"
-            Scotty.liftAndCatchIO $
-                DB.execute conn [sql|insert into todos (todo) values (?);|] (DB.Only todo :: DB.Only Text.Text)
+                        HTML.form ! Attributes.action "/" ! Attributes.method "post" $ do
+                            HTML.input ! Attributes.type_ "text" ! Attributes.name "todo"
+                            HTML.input ! Attributes.type_ "submit" -- calls post on "/"
 
-            Scotty.redirect "/"
+            Scotty.post "/" $ do
+                todo <- Scotty.param "todo"
+                Scotty.liftAndCatchIO $
+                    DB.execute conn [sql|insert into todos (todo) values (?);|] (DB.Only todo :: DB.Only Text.Text)
 
-        Scotty.post "/:id" $ do
-            id <- Scotty.param "id"
-            todo <- Scotty.param "todo"
-            Scotty.liftAndCatchIO $
-                DB.executeNamed conn [sql|update todos set todo=:todo where id=:id;|]
-                    [ ":id" := (id :: Int), ":todo" := (todo :: Text.Text) ]
+                Scotty.redirect "/"
 
-        Scotty.delete "/:id" $ do
-            id <- Scotty.param "id"
-            Scotty.liftAndCatchIO $
-                DB.executeNamed conn [sql|delete from todos where id=:id ;|]
-                    [ ":id" := (id :: Int) ]
+            Scotty.post "/:id" $ do
+                id <- Scotty.param "id"
+                todo <- Scotty.param "todo"
+                Scotty.liftAndCatchIO $
+                    DB.executeNamed conn [sql|update todos set todo=:todo where id=:id;|]
+                        [ ":id" := (id :: Int), ":todo" := (todo :: Text.Text) ]
 
-        Scotty.get "/:id" $ do
-            id <- Scotty.param "id"
-            todos <- Scotty.liftAndCatchIO $
-                DB.queryNamed conn [sql|select * from todos where id=:id;|]
-                    [ ":id" := (id :: Int) ] :: Scotty.ActionM [ToDo]
-            if null todos
-                then
-                    Scotty.status Status.status404
-                else
-                    -- Scotty.html $ "<h1>" <> Text.Lazy.pack (show todo) <> "</h1>"
-                    Scotty.html $ renderHtml $ HTML.html $ do
-                                    HTML.head $ do
-                                        HTML.title $ mapM_ (HTML.toMarkup . todo) todos
-                                    HTML.body $ do
-                                        HTML.h1 $ mapM_ (HTML.toMarkup . todo) todos
+            Scotty.delete "/:id" $ do
+                id <- Scotty.param "id"
+                Scotty.liftAndCatchIO $
+                    DB.executeNamed conn [sql|delete from todos where id=:id ;|]
+                        [ ":id" := (id :: Int) ]
 
-        Scotty.get "/edit/:id" $ do
-            id <- Scotty.param "id"
-            todos <- Scotty.liftAndCatchIO $
-                DB.queryNamed conn [sql|select * from todos where id=:id;|]
-                    [ ":id" := (id :: Int) ] :: Scotty.ActionM [ToDo]
-            let currenttodo = concatMap (show . todo) todos
-            if null todos
-                then
-                    Scotty.status Status.status404
-                else
-                    Scotty.html $ renderHtml $ HTML.html $ do
-                        HTML.head $ do
-                            HTML.title $ mapM_ (HTML.toMarkup . todo) todos
-                        HTML.body $ do
-                            HTML.h1 $ HTML.toMarkup (Text.pack "Editing: ")
-                                    <> mapM_ (HTML.toMarkup . todo) todos
+            Scotty.get "/:id" $ do
+                id <- Scotty.param "id"
+                todos <- Scotty.liftAndCatchIO $
+                    DB.queryNamed conn [sql|select * from todos where id=:id;|]
+                        [ ":id" := (id :: Int) ] :: Scotty.ActionM [ToDo]
+                if null todos
+                    then
+                        Scotty.status Status.status404
+                    else
+                        -- Scotty.html $ "<h1>" <> Text.Lazy.pack (show todo) <> "</h1>"
+                        Scotty.html $ renderHtml $ HTML.html $ do
+                                        HTML.head $ do
+                                            HTML.title $ mapM_ (HTML.toMarkup . todo) todos
+                                        HTML.body $ do
+                                            HTML.h1 $ mapM_ (HTML.toMarkup . todo) todos
 
-                            updateChecklist
+            Scotty.get "/edit/:id" $ do
+                id <- Scotty.param "id"
+                todos <- Scotty.liftAndCatchIO $
+                    DB.queryNamed conn [sql|select * from todos where id=:id;|]
+                        [ ":id" := (id :: Int) ] :: Scotty.ActionM [ToDo]
+                let currenttodo = concatMap (show . todo) todos
+                if null todos
+                    then
+                        Scotty.status Status.status404
+                    else
+                        Scotty.html $ renderHtml $ HTML.html $ do
+                            HTML.head $ do
+                                HTML.title $ mapM_ (HTML.toMarkup . todo) todos
+                            HTML.body $ do
+                                HTML.h1 $ HTML.toMarkup (Text.pack "Editing: ")
+                                        <> mapM_ (HTML.toMarkup . todo) todos
 
-                            HTML.hr
+                                updateChecklist
 
-                            updateForm1 currenttodo
+                                HTML.hr
 
-    -- DB.close conn
+                                updateForm1 currenttodo
+
+        -- DB.close conn
