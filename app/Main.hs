@@ -27,6 +27,31 @@ import Data.Foldable (for_)
 data ToDo = ToDo { id :: Int, todo :: Text.Text }
   deriving (Generic, FromRow, Show)
 
+updateChecklist :: HTML.Html
+updateChecklist =
+    HTML.ol $ do
+        HTML.li $ do
+            HTML.toMarkup (Text.pack "- ☑ Create Form")
+        HTML.li $ do
+            HTML.toMarkup (Text.pack "- [ ] 'on submit', Check if change made to item")
+        HTML.li $ do
+            HTML.toMarkup (Text.pack "- [ ] If Change made, update database")
+
+updateForm1 :: HTML.ToValue a => a -> HTML.Html
+updateForm1 currenttodo =
+    HTML.form ! Attributes.action "/edit/:id" ! Attributes.method "post" $ do
+    HTML.label ! Attributes.for "currenttodo"
+                $ HTML.toMarkup (Text.pack "Current:")
+    HTML.input ! Attributes.type_ "text"
+                ! Attributes.disabled "disabled"
+                ! Attributes.value (HTML.toValue currenttodo)
+            --    ! Attributes.value (HTML.preEscapedToValue currenttodo)
+                ! Attributes.name "currenttodo"
+    HTML.label ! Attributes.for "updatedtodo"
+                $ HTML.toMarkup (Text.pack "Updated:")
+    HTML.input ! Attributes.type_ "text" ! Attributes.name "updatedtodo"
+    HTML.input ! Attributes.type_ "submit" -- calls post on "/edit/:id"
+
 main :: IO ()
 main = DB.withConnection "ttadb.db" $ \conn -> do
 
@@ -127,29 +152,16 @@ main = DB.withConnection "ttadb.db" $ \conn -> do
                     Scotty.status Status.status404
                 else
                     Scotty.html $ renderHtml $ HTML.html $ do
-                                    HTML.head $ do
-                                        HTML.title $ mapM_ (HTML.toMarkup . todo) todos
-                                    HTML.body $ do
-                                        HTML.h1 $ HTML.toMarkup (Text.pack "Editing: ")
-                                                <> mapM_ (HTML.toMarkup . todo) todos
-                                        HTML.ol $ do
-                                            HTML.li $ do
-                                                HTML.toMarkup (Text.pack "- ☑ Create Form")
-                                            HTML.li $ do
-                                                HTML.toMarkup (Text.pack "- [ ] 'on submit', Check if change made to item")
-                                            HTML.li $ do
-                                                HTML.toMarkup (Text.pack "- [ ] If Change made, update database")
+                        HTML.head $ do
+                            HTML.title $ mapM_ (HTML.toMarkup . todo) todos
+                        HTML.body $ do
+                            HTML.h1 $ HTML.toMarkup (Text.pack "Editing: ")
+                                    <> mapM_ (HTML.toMarkup . todo) todos
 
-                                        HTML.hr
+                            updateChecklist
 
-                                        HTML.form ! Attributes.action "/edit/:id" ! Attributes.method "post" $ do
-                                            HTML.label ! Attributes.for "currenttodo" $ HTML.toMarkup (Text.pack "Current:")
-                                            HTML.input ! Attributes.type_ "text"
-                                                       ! Attributes.disabled "disabled"
-                                                       ! Attributes.value (HTML.toValue currenttodo)
-                                                       ! Attributes.name "currenttodo"
-                                            HTML.label ! Attributes.for "updatedtodo" $ HTML.toMarkup (Text.pack "Updated:")
-                                            HTML.input ! Attributes.type_ "text" ! Attributes.name "updatedtodo"
-                                            HTML.input ! Attributes.type_ "submit" -- calls post on "/edit/:id"
+                            HTML.hr
+
+                            updateForm1 currenttodo
 
     -- DB.close conn
