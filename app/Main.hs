@@ -46,6 +46,9 @@ updateForm1 currenttodo =
     HTML.input ! Attributes.type_ "text" ! Attributes.name "updatedtodo"
     HTML.input ! Attributes.type_ "submit" -- calls post on "/edit/:id"
 
+formName :: Show a => a -> String
+formName id = "editform" <> show id
+
 main :: IO ()
 main = DB.withConnection "ttadb.db" $ \conn -> do
 
@@ -72,9 +75,11 @@ main = DB.withConnection "ttadb.db" $ \conn -> do
                         \.flex-container button { align-self: flex-start; }"
 
                     HTML.script $ do
+                        -- // JS funcs called when buttons clicked
                         "const deleteToDo = b => { fetch(`/${b.value}`, { method: 'DELETE' })\
                         \ .then(r => b.parentElement.remove()); };\
-                        \const updateToDo = b => { window.location.href = `/edit/${b.value}`; } // Simulate a mouse click"
+                        \const toggleVisUpdateForm = b => { console.log(`/edit/${b.value}`);   var x = document.getElementById(`editform${b.value}`); if (x.style.display === 'none') { x.style.display = 'block'; } else { x.style.display = 'none'; } };\
+                        \const updateToDo = b => { window.location.href = `/edit/${b.value}`; };"
                         -- \const updateToDo = b => { fetch(`/edit/${b.value}`, { method: 'GET' }) }" -- \
                         -- \ .then( console.log('Hello!'); ); }"
 
@@ -94,6 +99,11 @@ main = DB.withConnection "ttadb.db" $ \conn -> do
                                             ! Attributes.value (HTML.toValue id)
                                             ! Attributes.onclick "updateToDo(this)" $ do
                                     "update id:" <> HTML.toMarkup id
+                                HTML.button ! Attributes.type_ "button"
+                                            ! Attributes.value (HTML.toValue id)
+                                            ! Attributes.onclick "toggleVisUpdateForm(this)" $ do
+                                    "update id: " <> HTML.toMarkup id <> " on page"
+                                HTML.p ! Attributes.id (HTML.toValue (formName id)) $ "booyah!"
 
                     HTML.form ! Attributes.action "/" ! Attributes.method "post" $ do
                         HTML.input ! Attributes.type_ "text" ! Attributes.name "todo"
