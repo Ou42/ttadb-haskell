@@ -121,6 +121,7 @@ main = DB.withConnection "ttadb.db" $ \conn -> do
             todos <- Scotty.liftAndCatchIO $
                 DB.queryNamed conn [sql|select * from todos where id=:id;|]
                     [ ":id" := (id :: Int) ] :: Scotty.ActionM [ToDo]
+            let currenttodo = concatMap (show . todo) todos
             if null todos
                 then
                     Scotty.status Status.status404
@@ -133,11 +134,22 @@ main = DB.withConnection "ttadb.db" $ \conn -> do
                                                 <> mapM_ (HTML.toMarkup . todo) todos
                                         HTML.ol $ do
                                             HTML.li $ do
-                                                HTML.toMarkup (Text.pack "Create Form")
+                                                HTML.toMarkup (Text.pack "- ☑ Create Form")
                                             HTML.li $ do
-                                                HTML.toMarkup (Text.pack "'on submit', Check if change made to item")
+                                                HTML.toMarkup (Text.pack "- [ ] 'on submit', Check if change made to item")
                                             HTML.li $ do
-                                                HTML.toMarkup (Text.pack "If Change made, update database")
+                                                HTML.toMarkup (Text.pack "- [ ] If Change made, update database")
 
+                                        HTML.hr
+
+                                        HTML.form ! Attributes.action "/edit/:id" ! Attributes.method "post" $ do
+                                            HTML.label ! Attributes.for "currenttodo" $ HTML.toMarkup (Text.pack "Current:")
+                                            HTML.input ! Attributes.type_ "text"
+                                                       ! Attributes.disabled "disabled"
+                                                       ! Attributes.value (HTML.toValue currenttodo)
+                                                       ! Attributes.name "currenttodo"
+                                            HTML.label ! Attributes.for "updatedtodo" $ HTML.toMarkup (Text.pack "Updated:")
+                                            HTML.input ! Attributes.type_ "text" ! Attributes.name "updatedtodo"
+                                            HTML.input ! Attributes.type_ "submit" -- calls post on "/edit/:id"
 
     -- DB.close conn
