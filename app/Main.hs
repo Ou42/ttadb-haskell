@@ -37,16 +37,10 @@ updateChecklist =
         HTML.li $ do
             HTML.toMarkup (Text.pack "- [ ] If Change made, update database")
 
-updateForm1 :: HTML.ToValue a => a -> HTML.Html
+updateForm1 :: String -> HTML.Html
 updateForm1 currenttodo =
     HTML.form ! Attributes.action "/edit/:id" ! Attributes.method "post" $ do
-    HTML.label ! Attributes.for "currenttodo"
-                $ HTML.toMarkup (Text.pack "Current:")
-    HTML.input ! Attributes.type_ "text"
-                ! Attributes.disabled "disabled"
-                ! Attributes.value (HTML.toValue currenttodo)
-            --    ! Attributes.value (HTML.preEscapedToValue currenttodo)
-                ! Attributes.name "currenttodo"
+    HTML.p $ HTML.toMarkup $ Text.pack $ "Current: " <> currenttodo
     HTML.label ! Attributes.for "updatedtodo"
                 $ HTML.toMarkup (Text.pack "Updated:")
     HTML.input ! Attributes.type_ "text" ! Attributes.name "updatedtodo"
