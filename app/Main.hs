@@ -47,17 +47,20 @@ updateForm =
                     --   ! Attributes.method "post"
                       $ do
 
-                HTML.p $ HTML.toMarkup $ Text.pack $ "Current: " <> "???"
+                -- HTML.p ! Attributes.class_ "prev_todo " $ "Current: " <> "???"
+                HTML.p ! Attributes.id "prev_todo " $ "Current: " <> "???"
 
                 HTML.label ! Attributes.for "updatedtodo"
                            $ HTML.toMarkup (Text.pack "Updated:")
 
                 HTML.input ! Attributes.type_ "text"
-                           ! Attributes.class_ "update_id"
+                           ! Attributes.name "update_id"
+                        --    ! Attributes.id "update_id"
+                        --    ! Attributes.class_ "update_id"
                            ! Attributes.hidden "true"
 
                 HTML.input ! Attributes.type_ "text"
-                           ! Attributes.name "updatedtodo"
+                           ! Attributes.name "updated_todo"
                            ! Attributes.placeholder "Enter Edited ToDo"
 
                 HTML.button ! Attributes.type_ "button" -- REQUIRED! else it "submits" the form!
@@ -129,7 +132,7 @@ main = do
 
                         HTML.ul $ do
                             for_ todos $ \ToDo {id, todo} -> do
-                                HTML.li $ do
+                                HTML.li ! Attributes.name (HTML.toValue ("todo: " <> show id)) $ do
                                     HTML.div ! Attributes.class_ "flex-container" $ do
 
                                         HTML.a ! Attributes.href ("/" <> HTML.toValue id)
@@ -158,6 +161,8 @@ main = do
                         HTML.form ! Attributes.action "/" ! Attributes.method "post" $ do
                             HTML.input ! Attributes.type_ "text" ! Attributes.name "todo"
                             HTML.input ! Attributes.type_ "submit" -- calls post on "/"
+
+                        updateChecklist
 
             Scotty.post "/" $ do
                 todo <- Scotty.param "todo"

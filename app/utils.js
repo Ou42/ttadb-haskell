@@ -27,17 +27,31 @@ const updateToDo = b => {
 
 // function vs const syntax?!
 
-function edit(id) {
-    console.log(`edit(${id})`);
-    console.log(`edit id = ${id.value}`);
-    console.log(id);
-    document.querySelector(".update_id").value = id.value;
+function edit(btn) {
+    var id = btn.value;
+    console.log(`edit(${btn})`);
+    console.log(btn);
+    console.log(`edit id = ${id}`);
+    // document.querySelector(".update_id").value = id.value;
+    // document.getElementById("update_id").value = id.value;
+    document.querySelector("[name='update_id']").value = id.value;
     document.querySelector(".update_form").style.display = "block";
+
+    var todoStr = `[name='todo: ${id}']`;
+    console.log(`todoStr = ${todoStr}`);
+    // var todoLI = document.querySelector(todoStr).value;
+    var todoLI = document.querySelector(todoStr);
+    console.log(`todo = ${todoLI}`);
+    console.log(todoLI);
+
+    // document.getElementById("prev_todo").value = "hmm ??? hmm";
+    // document.getElementById("updated_todo").value = "??? hmmm ???";
 }
 
 function update() {
     console.log("update()");
-    var id = document.querySelector(".update_id").value;
+    // var id = document.querySelector(".update_id").value;
+    var id = document.querySelector("[name='update_id']").value;
     console.log(id);
 
     document.querySelector(".update_form").style.display = "none";
