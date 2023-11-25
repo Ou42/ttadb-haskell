@@ -37,17 +37,61 @@ updateChecklist =
         HTML.li $ do
             HTML.toMarkup (Text.pack "- [ ] If Change made, update database")
 
+
+updateForm :: HTML.Html
+updateForm =
+    HTML.div ! Attributes.class_ "container" $ do
+        HTML.div ! Attributes.class_ "form_container" $ do
+            HTML.form ! Attributes.class_ "update_form"
+                    --   ! Attributes.action "/edit/:id"
+                    --   ! Attributes.method "post"
+                      $ do
+
+                HTML.p $ HTML.toMarkup $ Text.pack $ "Current: " <> "???"
+
+                HTML.label ! Attributes.for "updatedtodo"
+                           $ HTML.toMarkup (Text.pack "Updated:")
+
+                HTML.input ! Attributes.type_ "text"
+                           ! Attributes.class_ "update_id"
+                           ! Attributes.hidden "true"
+
+                HTML.input ! Attributes.type_ "text"
+                           ! Attributes.name "updatedtodo"
+                           ! Attributes.placeholder "Enter Edited ToDo"
+
+                HTML.button ! Attributes.type_ "button" -- REQUIRED! else it "submits" the form!
+                            ! Attributes.onclick "update()"
+                            $ "Update"
+
+                -- HTML.input ! Attributes.type_ "submit" -- calls post on "/edit/:id"
+
 updateForm1 :: String -> HTML.Html
 updateForm1 currenttodo =
     HTML.form ! Attributes.action "/edit/:id" ! Attributes.method "post" $ do
-    HTML.p $ HTML.toMarkup $ Text.pack $ "Current: " <> currenttodo
-    HTML.label ! Attributes.for "updatedtodo"
-                $ HTML.toMarkup (Text.pack "Updated:")
-    HTML.input ! Attributes.type_ "text" ! Attributes.name "updatedtodo"
-    HTML.input ! Attributes.type_ "submit" -- calls post on "/edit/:id"
+        HTML.p $ HTML.toMarkup $ Text.pack $ "Current: " <> currenttodo
+        HTML.label ! Attributes.for "updatedtodo"
+                    $ HTML.toMarkup (Text.pack "Updated:")
+        HTML.input ! Attributes.type_ "text" ! Attributes.name "updatedtodo"
+        HTML.input ! Attributes.type_ "submit" -- calls post on "/edit/:id"
 
 formName :: Show a => a -> String
 formName id = "editform" <> show id
+
+cssStr :: HTML.Html
+cssStr =
+    -- "* { ... }" made the bullet points disappear!
+    "\\* { margin: 0px; padding: 0px; box-sizing: border-box; }\
+    \body {}\
+    \a { text-decoration: none; color: white; }\
+    \li { background-color: cornflowerblue; }\
+    \.flex-container { display: flex; }\
+    \.flex-container a { flex: 0 0 33%; background-color: lightslategray; }\
+    \.flex-container button { align-self: flex-start; }\
+    \.hidden { display: none; }\
+    \.update_form { display: none; }\
+    \.update_form button { padding: 10px; background-color: green; color: white; }\
+    \.update_form button:hover { background-color: rgb(4, 82, 4); cursor: pointer; }"
 
 main :: IO ()
 main = do
@@ -70,12 +114,7 @@ main = do
                     HTML.head $ do
                         HTML.title "Talk to a Database | To-Do's"
 
-                        HTML.style $ do
-                            "a { text-decoration: none; color: white; }\
-                            \li { background-color: cornflowerblue; }\
-                            \.flex-container { display: flex; }\
-                            \.flex-container a { flex: 0 0 33%; background-color: lightslategray; }\
-                            \.flex-container button { align-self: flex-start; }"
+                        HTML.style cssStr
 
                         HTML.script $ do
                             -- // JS funcs called when buttons clicked
@@ -83,25 +122,38 @@ main = do
 
                     HTML.body $ do
                         HTML.h1 "To-Do's"
+
+                        updateForm -- can't send in a value?!
+
+                        HTML.hr
+
                         HTML.ul $ do
                             for_ todos $ \ToDo {id, todo} -> do
                                 HTML.li $ do
                                     HTML.div ! Attributes.class_ "flex-container" $ do
-                                        HTML.a ! Attributes.href ("/" <> HTML.toValue id) $ do
-                                                HTML.toMarkup todo
-                                        HTML.button ! Attributes.type_ "button"
-                                                    ! Attributes.value (HTML.toValue id)
-                                                    ! Attributes.onclick "deleteToDo(this)" $ do
-                                            "delete id:" <> HTML.toMarkup id
-                                        HTML.button ! Attributes.type_ "button"
-                                                    ! Attributes.value (HTML.toValue id)
-                                                    ! Attributes.onclick "updateToDo(this)" $ do
-                                            "update id:" <> HTML.toMarkup id
-                                        HTML.button ! Attributes.type_ "button"
-                                                    ! Attributes.value (HTML.toValue id)
-                                                    ! Attributes.onclick "toggleVisUpdateForm(this)" $ do
-                                            "update id: " <> HTML.toMarkup id <> " on page"
-                                        HTML.p ! Attributes.id (HTML.toValue (formName id)) $ "booyah!"
+
+                                        HTML.a ! Attributes.href ("/" <> HTML.toValue id)
+                                               $ HTML.toMarkup todo
+
+                                        -- old idea: to show the form under the item in the list
+                                        HTML.p ! Attributes.id (HTML.toValue (formName id))
+                                               ! Attributes.style "display: none"
+                                               $ "booyah!"
+
+                                        HTML.button ! Attributes.value (HTML.toValue id)
+                                                    ! Attributes.onclick "deleteToDo(this)"
+                                                    $ "delete"
+                                                    -- "delete" -- "delete id:" <> HTML.toMarkup id
+
+                                        HTML.button ! Attributes.value (HTML.toValue id)
+                                                    ! Attributes.onclick "updateToDo(this)"
+                                                    $ "update"
+                                                    -- "update id:" <> HTML.toMarkup id
+
+                                        HTML.button ! Attributes.value (HTML.toValue id)
+                                                    -- ! Attributes.onclick "toggleVisUpdateForm(this)" $ do
+                                                    ! Attributes.onclick "edit(this)"
+                                                    $ "update on page (id: " <> HTML.toMarkup id <> ")"
 
                         HTML.form ! Attributes.action "/" ! Attributes.method "post" $ do
                             HTML.input ! Attributes.type_ "text" ! Attributes.name "todo"

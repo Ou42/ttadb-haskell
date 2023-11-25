@@ -20,6 +20,29 @@ const updateToDo = b => {
     window.location.href = `/edit/${b.value}`;
 };
 
+
+// ---------------------------------------------
+
+// YT: Code w/ Yousaf - Creating a CRUD ...
+
+// function vs const syntax?!
+
+function edit(id) {
+    console.log(`edit(${id})`);
+    console.log(`edit id = ${id.value}`);
+    console.log(id);
+    document.querySelector(".update_id").value = id.value;
+    document.querySelector(".update_form").style.display = "block";
+}
+
+function update() {
+    console.log("update()");
+    var id = document.querySelector(".update_id").value;
+    console.log(id);
+
+    document.querySelector(".update_form").style.display = "none";
+}
+
 /*
 const updateToDo = b => {
     fetch(`/edit/${b.value}`, {
