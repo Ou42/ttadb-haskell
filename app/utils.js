@@ -8,7 +8,7 @@ const deleteToDo = b => {
 
 const toggleVisUpdateForm = b => {
     console.log(`/edit/${b.value}`);
-    var x = document.getElementById(`editform${b.value}`);
+    const x = document.getElementById(`editform${b.value}`);
     if (x.style.display === 'none') {
         x.style.display = 'block';
     } else {
@@ -27,38 +27,48 @@ const updateToDo = b => {
 
 // Q-01: function vs const syntax?!
 // Q-02: document.querySelector vs getElementById?!
+// Q-03: if searching for a class name, is "." always req?
+// Q-04: How to make this less brittle?
+//          - Some use `.value`, some `.text`, & others `.innerText`
+// Q-05: .replace() doesn't require sending in regex in quotes?!
 
 function edit(btn) {
-    var id = btn.value;
-    console.log(`edit(${btn})`);
-    console.log(btn);
-    console.log(`edit id = ${id}`);
+    const id = btn.value;
 
-    // document.querySelector(".update_id").value = id.value;
-    // document.getElementById("update_id").value = id.value;
-    document.querySelector("[name='update_id']").value = id.value;
+    // document.querySelector(".update_id").value = id;
+    // document.getElementById("update_id").value = id;
+    document.querySelector("[name='update_id']").value = id;
     document.querySelector(".update_form").style.display = "block";
 
-    var todoStr = `[name='todo: ${id}']`;
-    console.log(`todoStr = ${todoStr}`);
+    const todoStr = `[name='todo: ${id}']`;
 
-    var todoItemText = document.querySelector(todoStr).text;
-    console.log(`todoItemText = ${todoItemText}`);
+    const todoItemText = document.querySelector(todoStr).text;
 
-    var prev_todo = document.querySelector("[name='prev_todo']");
+    const prev_todo = document.querySelector("[name='prev_todo']");
     prev_todo.innerText = "Current: " + todoItemText;
-    console.log(prev_todo);
 
     document.querySelector("[name='updated_todo']").value = todoItemText;
+
+    // multi-line template literal, removing all dbl-space
+    console.log(`edit(${btn}) ---
+    | edit id = ${id}
+    | todoStr = ${todoStr}
+    | todoItemText = ${todoItemText}`.replace(/  +/g, ''));
+    console.log(prev_todo);
+    console.log(btn);
 }
 
 function update() {
-    console.log("update()");
-    // var id = document.querySelector(".update_id").value;
-    var id = document.querySelector("[name='update_id']").value;
-    console.log(id);
+    const id = document.querySelector("[name='update_id']").value;
+
+    const updated_todo = document.querySelector("[name='updated_todo']").value;
 
     document.querySelector(".update_form").style.display = "none";
+
+    // multi-line template literal, removing all dbl-space
+    console.log(`update() ---
+    | id = ${id}
+    | updated_todo = ${updated_todo}`.replace(/  +/g, ''));
 }
 
 /*
