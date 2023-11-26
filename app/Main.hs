@@ -30,12 +30,16 @@ data ToDo = ToDo { id :: Int, todo :: Text.Text }
 updateChecklist :: HTML.Html
 updateChecklist =
     HTML.ol $ do
-        HTML.li $ do
+        HTML.li $
             HTML.toMarkup (Text.pack "- ☑ Create Form")
-        HTML.li $ do
-            HTML.toMarkup (Text.pack "- [ ] 'on submit', Check if change made to item")
-        HTML.li $ do
-            HTML.toMarkup (Text.pack "- [ ] If Change made, update database")
+        HTML.li $
+            HTML.toMarkup (Text.pack "- ☑ update database via PUT")
+        HTML.li $
+            HTML.toMarkup (Text.pack "- ☑ reload page to show change")
+        HTML.li $
+            HTML.toMarkup (Text.pack "- [ ] Don't do PUT if no change made")
+        HTML.li $ 
+            HTML.toMarkup (Text.pack "- [ ] edit DOM instead of reload page?!")
 
 
 updateForm :: HTML.Html
@@ -114,7 +118,8 @@ main = do
                 todos <- Scotty.liftAndCatchIO $
                             DB.query_ conn [sql|select id, todo from todos;|] :: Scotty.ActionM [ToDo]
 
-                Scotty.html $ renderHtml $ HTML.html $ do
+                -- Scotty.html $ renderHtml $ HTML.html $ do
+                Scotty.html $ renderHtml $ HTML.docTypeHtml $ do
                     HTML.head $ do
                         HTML.title "Talk to a Database | To-Do's"
 
@@ -202,6 +207,13 @@ main = do
                                             HTML.title $ mapM_ (HTML.toMarkup . todo) todos
                                         HTML.body $ do
                                             HTML.h1 $ mapM_ (HTML.toMarkup . todo) todos
+
+            Scotty.put "/:id" $ do
+                id <- Scotty.param "id"
+                todo <- Scotty.param "todo"
+                Scotty.liftAndCatchIO $
+                    DB.executeNamed conn [sql|update todos set todo=:todo where id=:id;|]
+                        [ ":id" := (id :: Int), ":todo" := (todo :: Text.Text) ]
 
             Scotty.get "/edit/:id" $ do
                 id <- Scotty.param "id"
