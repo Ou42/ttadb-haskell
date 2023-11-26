@@ -25,13 +25,15 @@ const updateToDo = b => {
 
 // YT: Code w/ Yousaf - Creating a CRUD ...
 
-// function vs const syntax?!
+// Q-01: function vs const syntax?!
+// Q-02: document.querySelector vs getElementById?!
 
 function edit(btn) {
     var id = btn.value;
     console.log(`edit(${btn})`);
     console.log(btn);
     console.log(`edit id = ${id}`);
+
     // document.querySelector(".update_id").value = id.value;
     // document.getElementById("update_id").value = id.value;
     document.querySelector("[name='update_id']").value = id.value;
@@ -39,13 +41,15 @@ function edit(btn) {
 
     var todoStr = `[name='todo: ${id}']`;
     console.log(`todoStr = ${todoStr}`);
-    // var todoLI = document.querySelector(todoStr).value;
-    var todoLI = document.querySelector(todoStr);
-    console.log(`todo = ${todoLI}`);
-    console.log(todoLI);
 
-    // document.getElementById("prev_todo").value = "hmm ??? hmm";
-    // document.getElementById("updated_todo").value = "??? hmmm ???";
+    var todoItemText = document.querySelector(todoStr).text;
+    console.log(`todoItemText = ${todoItemText}`);
+
+    var prev_todo = document.querySelector("[name='prev_todo']");
+    prev_todo.innerText = "Current: " + todoItemText;
+    console.log(prev_todo);
+
+    document.querySelector("[name='updated_todo']").value = todoItemText;
 }
 
 function update() {

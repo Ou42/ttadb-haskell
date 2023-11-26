@@ -48,7 +48,8 @@ updateForm =
                       $ do
 
                 -- HTML.p ! Attributes.class_ "prev_todo " $ "Current: " <> "???"
-                HTML.p ! Attributes.id "prev_todo " $ "Current: " <> "???"
+                -- HTML.p ! Attributes.id "prev_todo" $ "Current: " <> "???"
+                HTML.p ! Attributes.name "prev_todo" $ "Current: " <> "???"
 
                 HTML.label ! Attributes.for "updatedtodo"
                            $ HTML.toMarkup (Text.pack "Updated:")
@@ -132,10 +133,12 @@ main = do
 
                         HTML.ul $ do
                             for_ todos $ \ToDo {id, todo} -> do
-                                HTML.li ! Attributes.name (HTML.toValue ("todo: " <> show id)) $ do
+                                -- HTML.li ! Attributes.name (HTML.toValue ("todo: " <> show id)) $ do
+                                HTML.li $ do
                                     HTML.div ! Attributes.class_ "flex-container" $ do
 
-                                        HTML.a ! Attributes.href ("/" <> HTML.toValue id)
+                                        HTML.a ! Attributes.name (HTML.toValue ("todo: " <> show id))
+                                               ! Attributes.href ("/" <> HTML.toValue id)
                                                $ HTML.toMarkup todo
 
                                         -- old idea: to show the form under the item in the list
