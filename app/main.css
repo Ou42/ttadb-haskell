@@ -1,0 +1,42 @@
+\\ * { margin: 0px; padding: 0px; box-sizing: border-box; }
+
+a { 
+    text-decoration: none;
+    color: white;
+}
+
+li {
+    background-color: cornflowerblue;
+}
+
+.flex-container {
+    display: flex;
+}
+
+.flex-container a {
+    flex: 0 0 33%;
+    background-color: lightslategray;
+}
+
+.flex-container button {
+    align-self: flex-start;
+}
+
+.hidden {
+    display: none;
+}
+
+.update_form {
+    display: none;
+}
+
+.update_form button {
+    padding: 10px;
+    background-color: green;
+    color: white;
+}
+
+.update_form button:hover {
+    background-color: rgb(4, 82, 4);
+    cursor: pointer;
+}

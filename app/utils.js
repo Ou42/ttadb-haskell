@@ -42,6 +42,7 @@ Q-09: PUT vs PATCH?!
       ... So, I'm responsible for "imitating" PUT / PATCH functionality?!
       <https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/PUT>
       <https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/PATCH>
+Q-10: remove fav-icon not found! A: .link ! Attr.rel & .href
 */
 
 function edit(btn) {

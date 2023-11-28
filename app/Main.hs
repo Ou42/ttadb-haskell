@@ -86,24 +86,10 @@ updateForm1 currenttodo =
 formName :: Show a => a -> String
 formName id = "editform" <> show id
 
-cssStr :: HTML.Html
-cssStr =
-    -- "* { ... }" made the bullet points disappear!
-    "\\* { margin: 0px; padding: 0px; box-sizing: border-box; }\
-    \body {}\
-    \a { text-decoration: none; color: white; }\
-    \li { background-color: cornflowerblue; }\
-    \.flex-container { display: flex; }\
-    \.flex-container a { flex: 0 0 33%; background-color: lightslategray; }\
-    \.flex-container button { align-self: flex-start; }\
-    \.hidden { display: none; }\
-    \.update_form { display: none; }\
-    \.update_form button { padding: 10px; background-color: green; color: white; }\
-    \.update_form button:hover { background-color: rgb(4, 82, 4); cursor: pointer; }"
-
 main :: IO ()
 main = do
     jsFile <- readFile "app/utils.js"
+    cssFile <- readFile "app/main.css"
 
     DB.withConnection "ttadb.db" $ \conn -> do
 
@@ -118,12 +104,14 @@ main = do
                 todos <- Scotty.liftAndCatchIO $
                             DB.query_ conn [sql|select id, todo from todos;|] :: Scotty.ActionM [ToDo]
 
-                -- Scotty.html $ renderHtml $ HTML.html $ do
                 Scotty.html $ renderHtml $ HTML.docTypeHtml $ do
                     HTML.head $ do
                         HTML.title "Talk to a Database | To-Do's"
 
-                        HTML.style cssStr
+                        HTML.link ! Attributes.rel "icon"
+                                  ! Attributes.href "data:,"
+
+                        HTML.style $ HTML.toMarkup cssFile
 
                         HTML.script $ do
                             -- // JS funcs called when buttons clicked
