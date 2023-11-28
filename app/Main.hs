@@ -38,7 +38,7 @@ updateChecklist =
             HTML.toMarkup (Text.pack "- ☑ reload page to show change")
         HTML.li $
             HTML.toMarkup (Text.pack "- [ ] Don't do PUT if no change made")
-        HTML.li $ 
+        HTML.li $
             HTML.toMarkup (Text.pack "- [ ] edit DOM instead of reload page?!")
 
 
@@ -74,14 +74,15 @@ updateForm =
 
                 -- HTML.input ! Attributes.type_ "submit" -- calls post on "/edit/:id"
 
-updateForm1 :: String -> HTML.Html
-updateForm1 currenttodo =
-    HTML.form ! Attributes.action "/edit/:id" ! Attributes.method "post" $ do
-        HTML.p $ HTML.toMarkup $ Text.pack $ "Current: " <> currenttodo
-        HTML.label ! Attributes.for "updatedtodo"
+updateForm1 :: ToDo -> HTML.Html
+updateForm1 ToDo {id, todo} =
+    HTML.form ! Attributes.action ("/" <> HTML.toValue id)
+              ! Attributes.method "post" $ do
+        HTML.p $ HTML.toMarkup $ "Current: " <> todo
+        HTML.label ! Attributes.for "todo"
                     $ HTML.toMarkup (Text.pack "Updated:")
-        HTML.input ! Attributes.type_ "text" ! Attributes.name "updatedtodo"
-        HTML.input ! Attributes.type_ "submit" -- calls post on "/edit/:id"
+        HTML.input ! Attributes.type_ "text" ! Attributes.name "todo"
+        HTML.input ! Attributes.type_ "submit" -- calls post on "/:id"
 
 formName :: Show a => a -> String
 formName id = "editform" <> show id
@@ -174,6 +175,9 @@ main = do
                     DB.executeNamed conn [sql|update todos set todo=:todo where id=:id;|]
                         [ ":id" := (id :: Int), ":todo" := (todo :: Text.Text) ]
 
+                Scotty.redirect ("/" <> Text.Lazy.pack (show id))
+
+
             Scotty.delete "/:id" $ do
                 id <- Scotty.param "id"
                 Scotty.liftAndCatchIO $
@@ -208,7 +212,6 @@ main = do
                 todos <- Scotty.liftAndCatchIO $
                     DB.queryNamed conn [sql|select * from todos where id=:id;|]
                         [ ":id" := (id :: Int) ] :: Scotty.ActionM [ToDo]
-                let currenttodo = concatMap (show . todo) todos
                 if null todos
                     then
                         Scotty.status Status.status404
@@ -224,6 +227,4 @@ main = do
 
                                 HTML.hr
 
-                                updateForm1 currenttodo
-
-        -- DB.close conn
+                                mapM_ updateForm1 todos
