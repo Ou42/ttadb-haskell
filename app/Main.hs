@@ -27,52 +27,6 @@ import Data.Foldable (for_)
 data ToDo = ToDo { id :: Int, todo :: Text.Text }
   deriving (Generic, FromRow, Show)
 
-updateChecklist :: HTML.Html
-updateChecklist =
-    HTML.ol $ do
-        HTML.li $
-            HTML.toMarkup (Text.pack "- ☑ Create Form")
-        HTML.li $
-            HTML.toMarkup (Text.pack "- ☑ update database via PUT")
-        HTML.li $
-            HTML.toMarkup (Text.pack "- ☑ reload page to show change")
-        HTML.li $
-            HTML.toMarkup (Text.pack "- [ ] Don't do PUT if no change made")
-        HTML.li $
-            HTML.toMarkup (Text.pack "- [ ] edit DOM instead of reload page?!")
-
-
-updateForm :: HTML.Html
-updateForm =
-    HTML.div ! Attributes.class_ "container" $ do
-        HTML.div ! Attributes.class_ "form_container" $ do
-            HTML.form ! Attributes.class_ "update_form"
-                    --   ! Attributes.action "/edit/:id"
-                    --   ! Attributes.method "post"
-                      $ do
-
-                -- HTML.p ! Attributes.class_ "prev_todo " $ "Current: " <> "???"
-                -- HTML.p ! Attributes.id "prev_todo" $ "Current: " <> "???"
-                HTML.p ! Attributes.name "prev_todo" $ "Current: " <> "???"
-
-                HTML.label ! Attributes.for "updatedtodo"
-                           $ HTML.toMarkup (Text.pack "Updated:")
-
-                HTML.input ! Attributes.type_ "text"
-                           ! Attributes.name "update_id"
-                        --    ! Attributes.id "update_id"
-                        --    ! Attributes.class_ "update_id"
-                           ! Attributes.hidden "true"
-
-                HTML.input ! Attributes.type_ "text"
-                           ! Attributes.name "updated_todo"
-                           ! Attributes.placeholder "Enter Edited ToDo"
-
-                HTML.button ! Attributes.type_ "button" -- REQUIRED! else it "submits" the form!
-                            ! Attributes.onclick "update()"
-                            $ "Update"
-
-                -- HTML.input ! Attributes.type_ "submit" -- calls post on "/edit/:id"
 
 updateForm1 :: ToDo -> HTML.Html
 updateForm1 ToDo {id, todo} =
@@ -84,8 +38,10 @@ updateForm1 ToDo {id, todo} =
         HTML.input ! Attributes.type_ "text" ! Attributes.name "todo"
         HTML.input ! Attributes.type_ "submit" -- calls post on "/:id"
 
-formName :: Show a => a -> String
-formName id = "editform" <> show id
+noFavIcon :: HTML.Html
+noFavIcon =
+    HTML.link ! Attributes.rel "icon"
+              ! Attributes.href "data:,"
 
 main :: IO ()
 main = do
@@ -109,8 +65,7 @@ main = do
                     HTML.head $ do
                         HTML.title "Talk to a Database | To-Do's"
 
-                        HTML.link ! Attributes.rel "icon"
-                                  ! Attributes.href "data:,"
+                        noFavIcon
 
                         HTML.style $ HTML.toMarkup cssFile
 
@@ -121,13 +76,8 @@ main = do
                     HTML.body $ do
                         HTML.h1 "To-Do's"
 
-                        updateForm -- can't send in a value?!
-
-                        HTML.hr
-
                         HTML.ul $ do
                             for_ todos $ \ToDo {id, todo} -> do
-                                -- HTML.li ! Attributes.name (HTML.toValue ("todo: " <> show id)) $ do
                                 HTML.li $ do
                                     HTML.div ! Attributes.class_ "flex-container" $ do
 
@@ -135,31 +85,13 @@ main = do
                                                ! Attributes.href ("/" <> HTML.toValue id)
                                                $ HTML.toMarkup todo
 
-                                        -- old idea: to show the form under the item in the list
-                                        HTML.p ! Attributes.id (HTML.toValue (formName id))
-                                               ! Attributes.style "display: none"
-                                               $ "booyah!"
-
                                         HTML.button ! Attributes.value (HTML.toValue id)
                                                     ! Attributes.onclick "deleteToDo(this)"
                                                     $ "delete"
-                                                    -- "delete" -- "delete id:" <> HTML.toMarkup id
-
-                                        HTML.button ! Attributes.value (HTML.toValue id)
-                                                    ! Attributes.onclick "updateToDo(this)"
-                                                    $ "update"
-                                                    -- "update id:" <> HTML.toMarkup id
-
-                                        HTML.button ! Attributes.value (HTML.toValue id)
-                                                    -- ! Attributes.onclick "toggleVisUpdateForm(this)" $ do
-                                                    ! Attributes.onclick "edit(this)"
-                                                    $ "update on page (id: " <> HTML.toMarkup id <> ")"
 
                         HTML.form ! Attributes.action "/" ! Attributes.method "post" $ do
                             HTML.input ! Attributes.type_ "text" ! Attributes.name "todo"
                             HTML.input ! Attributes.type_ "submit" -- calls post on "/"
-
-                        updateChecklist
 
             Scotty.post "/" $ do
                 todo <- Scotty.param "todo"
@@ -193,38 +125,15 @@ main = do
                     then
                         Scotty.status Status.status404
                     else
-                        -- Scotty.html $ "<h1>" <> Text.Lazy.pack (show todo) <> "</h1>"
-                        Scotty.html $ renderHtml $ HTML.html $ do
-                                        HTML.head $ do
-                                            HTML.title $ mapM_ (HTML.toMarkup . todo) todos
-                                        HTML.body $ do
-                                            HTML.h1 $ mapM_ (HTML.toMarkup . todo) todos
-
-            Scotty.put "/:id" $ do
-                id <- Scotty.param "id"
-                todo <- Scotty.param "todo"
-                Scotty.liftAndCatchIO $
-                    DB.executeNamed conn [sql|update todos set todo=:todo where id=:id;|]
-                        [ ":id" := (id :: Int), ":todo" := (todo :: Text.Text) ]
-
-            Scotty.get "/edit/:id" $ do
-                id <- Scotty.param "id"
-                todos <- Scotty.liftAndCatchIO $
-                    DB.queryNamed conn [sql|select * from todos where id=:id;|]
-                        [ ":id" := (id :: Int) ] :: Scotty.ActionM [ToDo]
-                if null todos
-                    then
-                        Scotty.status Status.status404
-                    else
-                        Scotty.html $ renderHtml $ HTML.html $ do
+                        Scotty.html $ renderHtml $ HTML.docTypeHtml $ do
                             HTML.head $ do
                                 HTML.title $ mapM_ (HTML.toMarkup . todo) todos
+
+                                noFavIcon
+
                             HTML.body $ do
                                 HTML.h1 $ HTML.toMarkup (Text.pack "Editing: ")
                                         <> mapM_ (HTML.toMarkup . todo) todos
 
-                                updateChecklist
-
-                                HTML.hr
-
                                 mapM_ updateForm1 todos
+ 

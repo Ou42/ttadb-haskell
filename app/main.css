@@ -22,21 +22,12 @@ li {
     align-self: flex-start;
 }
 
-.hidden {
-    display: none;
-}
-
-.update_form {
-    display: none;
-}
-
-.update_form button {
-    padding: 10px;
-    background-color: green;
+.flex-container button {
+    background-color: rgba(157, 0, 0, 0.700);
     color: white;
 }
 
-.update_form button:hover {
-    background-color: rgb(4, 82, 4);
+.flex-container button:hover {
+    background-color: red;
     cursor: pointer;
 }
