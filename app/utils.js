@@ -1,9 +1,9 @@
 // JS funcs called when buttons clicked
-const deleteToDo = b => {
-    fetch(`/${b.value}`, {
+const deleteToDo = async b => {
+  const r = await fetch(`/${b.value}`, {
             method: 'DELETE'
-        })
-        .then(r => b.parentElement.remove());
+  })
+  document.querySelector(`#todo-${b.value}`).remove()
 };
 
 // ---------------------------------------------

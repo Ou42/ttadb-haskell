@@ -78,7 +78,7 @@ main = do
 
                         HTML.ul $ do
                             for_ todos $ \ToDo {id, todo} -> do
-                                HTML.li $ do
+                                HTML.li ! Attributes.id ("todo-" <> HTML.toValue id) $ do
                                     HTML.div ! Attributes.class_ "flex-container" $ do
 
                                         HTML.a ! Attributes.name (HTML.toValue ("todo: " <> show id))
