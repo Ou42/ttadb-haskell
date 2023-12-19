@@ -23,6 +23,7 @@ import qualified Text.Blaze.Html5.Attributes as Attributes
 import Text.Blaze.Html5 ((!))
 import Text.Blaze.Html.Renderer.Text (renderHtml)
 import Data.Foldable (for_)
+import qualified Options
 
 data ToDo = ToDo { id :: Int, todo :: Text.Text }
   deriving (Generic, FromRow, Show)
@@ -45,6 +46,8 @@ noFavIcon =
 
 main :: IO ()
 main = do
+    Options.Options { Options.port } <- Options.getOptions
+
     jsFile <- readFile "app/utils.js"
     cssFile <- readFile "app/main.css"
 
@@ -55,7 +58,7 @@ main = do
                             , todo text
                             );|] -- between [sql| ... |] is a quasi-quoter, this is SQL not Haskell
 
-        Scotty.scotty 4242 $ do
+        Scotty.scotty port $ do
 
             Scotty.get "/" $ do
                 todos <- Scotty.liftAndCatchIO $
