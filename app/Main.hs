@@ -24,6 +24,7 @@ import Text.Blaze.Html5 ((!))
 import Text.Blaze.Html.Renderer.Text (renderHtml)
 import Data.Foldable (for_)
 import qualified Options
+import Options (Options(..))
 
 data ToDo = ToDo { id :: Int, todo :: Text.Text }
   deriving (Generic, FromRow, Show)
@@ -46,12 +47,12 @@ noFavIcon =
 
 main :: IO ()
 main = do
-    Options.Options { Options.port } <- Options.getOptions
+    Options { port, db } <- Options.getOptions
 
     jsFile <- readFile "app/utils.js"
     cssFile <- readFile "app/main.css"
 
-    DB.withConnection "ttadb.db" $ \conn -> do
+    DB.withConnection db $ \conn -> do
 
         DB.execute_ conn [sql|create table if not exists todos
                             ( id integer primary key autoincrement
