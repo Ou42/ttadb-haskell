@@ -55,8 +55,10 @@ main = do
     DB.withConnection db $ \conn -> do
 
         DB.execute_ conn [sql|create table if not exists todos
-                            ( id integer primary key autoincrement
-                            , todo text
+                            ( id INTEGER primary key autoincrement
+                            , todo TEXT
+                            , done BOOLEAN default FALSE
+                            , done_date TEXT
                             );|] -- between [sql| ... |] is a quasi-quoter, this is SQL not Haskell
 
         Scotty.scotty port $ do
