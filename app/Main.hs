@@ -100,15 +100,15 @@ main = do
                             HTML.input ! Attributes.type_ "submit" -- calls post on "/"
 
             Scotty.post "/" $ do
-                todo <- Scotty.param "todo"
+                todo <- Scotty.formParam "todo"
                 Scotty.liftAndCatchIO $
                     DB.execute conn [sql|insert into todos (todo) values (?);|] (DB.Only todo :: DB.Only Text.Text)
 
                 Scotty.redirect "/"
 
             Scotty.post "/:id" $ do
-                id <- Scotty.param "id"
-                todo <- Scotty.param "todo"
+                id <- Scotty.captureParam "id"
+                todo <- Scotty.captureParam "todo"
                 Scotty.liftAndCatchIO $
                     DB.executeNamed conn [sql|update todos set todo=:todo where id=:id;|]
                         [ ":id" := (id :: Int), ":todo" := (todo :: Text.Text) ]
@@ -117,15 +117,17 @@ main = do
 
 
             Scotty.delete "/:id" $ do
-                id <- Scotty.param "id"
+                id <- Scotty.captureParam "id"
                 Scotty.liftAndCatchIO $
                     DB.executeNamed conn [sql|delete from todos where id=:id ;|]
                         [ ":id" := (id :: Int) ]
 
             Scotty.get "/:id" $ do
-                id <- Scotty.param "id"
+                id <- Scotty.captureParam "id"
+                
                 todos <- Scotty.liftAndCatchIO $
-                    DB.queryNamed conn [sql|select * from todos where id=:id;|]
+                    -- DB.queryNamed conn [sql|select * from todos where id=:id ;|]
+                    DB.queryNamed conn [sql|select id, todo from todos where id=:id ;|]
                         [ ":id" := (id :: Int) ] :: Scotty.ActionM [ToDo]
                 if null todos
                     then
