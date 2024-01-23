@@ -107,8 +107,8 @@ main = do
                 Scotty.redirect "/"
 
             Scotty.post "/:id" $ do
-                id <- Scotty.captureParam "id"
-                todo <- Scotty.captureParam "todo"
+                id <- Scotty.captureParam "id"      -- capture is URL
+                todo <- Scotty.formParam "todo"  -- form is request body
                 Scotty.liftAndCatchIO $
                     DB.executeNamed conn [sql|update todos set todo=:todo where id=:id;|]
                         [ ":id" := (id :: Int), ":todo" := (todo :: Text.Text) ]
