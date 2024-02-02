@@ -7,8 +7,10 @@
 module Main where
 
 import Prelude hiding (id)
+-- import Control.Monad.IO.Class
 import qualified Data.Text as Text
 import qualified Web.Scotty as Scotty
+-- import Web.Scotty.Trans
 import qualified Database.SQLite.Simple as DB
 import Database.SQLite.Simple (NamedParam(..))
 import Database.SQLite.Simple.QQ (sql)
@@ -26,12 +28,42 @@ import Data.Foldable (for_)
 import qualified Options
 import Options (Options(..))
 
-data ToDo = ToDo { id :: Int, todo :: Text.Text }
+data ToDo = ToDo { id :: Int
+                 , todo :: Text.Text
+                 , done :: Bool
+                 , done_date :: Text.Text
+                 }
   deriving (Generic, FromRow, Show)
 
+-- Define a custom exception type.
+{- data Except = Forbidden | NotFound Int | StringEx String
+    deriving (Show, Eq)
+-}
+
+-- The type must be an instance of 'ScottyError'.
+-- 'ScottyError' is essentially a combination of 'Error' and 'Show'.
+{- instance ScottyError Except where
+instance ScottyException Except where
+    stringError = StringEx
+    showError = fromString . show
+-}
+
+-- Handler for uncaught exceptions.
+{- handleEx :: Monad m => Except -> ActionT Except m ()
+handleEx Forbidden    = do
+    status status403
+    html "<h1>Scotty Says No</h1>"
+handleEx (NotFound i) = do
+    status status404
+    html $ fromString $ "<h1>Can't find " ++ show i ++ ".</h1>"
+handleEx (StringEx s) = do
+    status status500
+    html $ fromString $ "<h1>" ++ s ++ "</h1>"
+-}
 
 updateForm1 :: ToDo -> HTML.Html
-updateForm1 ToDo {id, todo} =
+-- updateForm1 ToDo {id, todo} =
+updateForm1 ToDo {id, todo, done, done_date} =
     HTML.form ! Attributes.action ("/" <> HTML.toValue id)
               ! Attributes.method "post" $ do
         HTML.p $ HTML.toMarkup $ "Current: " <> todo
@@ -47,7 +79,7 @@ noFavIcon =
 
 main :: IO ()
 main = do
-    Options { port, db } <- Options.getOptions
+    Options.Options { port, db } <- Options.getOptions
 
     jsFile <- readFile "app/utils.js"
     cssFile <- readFile "app/main.css"
@@ -64,12 +96,51 @@ main = do
         Scotty.scotty port $ do
 
             Scotty.get "/" $ do
-                todos <- Scotty.liftAndCatchIO $
-                            DB.query_ conn [sql|select id, todo from todos;|] :: Scotty.ActionM [ToDo]
+                todos <- Scotty.liftIO $
+                            -- DB.query_ conn [sql|select id, todo from todos;|] :: Scotty.ActionM [ToDo]
+                            DB.query_ conn [sql|select * from todos;|] :: Scotty.ActionM [ToDo]
 
                 Scotty.html $ renderHtml $ HTML.docTypeHtml $ do
                     HTML.head $ do
                         HTML.title "Talk to a Database | To-Do's"
+
+                        noFavIcon
+
+                        HTML.style $ HTML.toMarkup cssFile
+
+                        HTML.script $ do
+                            -- // JS funcs called when buttons clicked
+                            HTML.toMarkup jsFile
+
+                    HTML.body $ do
+                        HTML.h1 "To-Do's"
+
+                        HTML.ul $ do
+                            -- for_ todos $ \ToDo {id, todo} -> do
+                            for_ todos $ \ToDo {id, todo, done, done_date} -> do
+                                HTML.li ! Attributes.id ("todo-" <> HTML.toValue id) $ do
+                                    HTML.div ! Attributes.class_ "flex-container" $ do
+
+                                        HTML.a ! Attributes.name (HTML.toValue ("todo: " <> show id))
+                                               ! Attributes.href ("/" <> HTML.toValue id)
+                                               $ HTML.toMarkup todo
+
+                                        HTML.button ! Attributes.value (HTML.toValue id)
+                                                    ! Attributes.onclick "deleteToDo(this)"
+                                                    $ "delete"
+
+                        HTML.form ! Attributes.action "/" ! Attributes.method "post" $ do
+                            HTML.input ! Attributes.type_ "text" ! Attributes.name "todo"
+                            HTML.input ! Attributes.type_ "submit" -- calls post on "/"
+
+            Scotty.get "/admin" $ do
+                todos <- Scotty.liftIO $
+                            DB.query_ conn [sql|select id, todo, done, done_date from todos;|] :: Scotty.ActionM [ToDo]
+                            -- DB.query_ conn [sql|select id, todo from todos;|] :: Scotty.ActionM [ToDo]
+
+                Scotty.html $ renderHtml $ HTML.docTypeHtml $ do
+                    HTML.head $ do
+                        HTML.title "<< Admin Console >> Talk to a Database | To-Do's << Admin Console >>"
 
                         noFavIcon
 
@@ -101,7 +172,8 @@ main = do
 
             Scotty.post "/" $ do
                 todo <- Scotty.formParam "todo"
-                Scotty.liftAndCatchIO $
+                -- Scotty.liftAndCatchIO $
+                Scotty.liftIO $
                     DB.execute conn [sql|insert into todos (todo) values (?);|] (DB.Only todo :: DB.Only Text.Text)
 
                 Scotty.redirect "/"
@@ -109,7 +181,7 @@ main = do
             Scotty.post "/:id" $ do
                 id <- Scotty.captureParam "id"      -- capture is URL
                 todo <- Scotty.formParam "todo"  -- form is request body
-                Scotty.liftAndCatchIO $
+                Scotty.liftIO $
                     DB.executeNamed conn [sql|update todos set todo=:todo where id=:id;|]
                         [ ":id" := (id :: Int), ":todo" := (todo :: Text.Text) ]
 
@@ -118,14 +190,14 @@ main = do
 
             Scotty.delete "/:id" $ do
                 id <- Scotty.captureParam "id"
-                Scotty.liftAndCatchIO $
+                Scotty.liftIO $
                     DB.executeNamed conn [sql|delete from todos where id=:id ;|]
                         [ ":id" := (id :: Int) ]
 
             Scotty.get "/:id" $ do
                 id <- Scotty.captureParam "id"
                 
-                todos <- Scotty.liftAndCatchIO $
+                todos <- Scotty.liftIO $
                     -- DB.queryNamed conn [sql|select * from todos where id=:id ;|]
                     DB.queryNamed conn [sql|select id, todo from todos where id=:id ;|]
                         [ ":id" := (id :: Int) ] :: Scotty.ActionM [ToDo]
