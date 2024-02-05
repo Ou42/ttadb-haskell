@@ -13,11 +13,13 @@ import Control.Monad.IO.Unlift (MonadUnliftIO(..))
 import Data.String (fromString)
 import Data.Typeable ( Typeable )
 import qualified Network.Wai.Middleware.RequestLogger as MW
+import GHC.Stack (HasCallStack)
 
 import qualified Web.Scotty.Trans as ScottyT
 
 import Prelude hiding (id)
 import qualified Prelude
+
 import qualified Data.Text as Text
 import qualified Web.Scotty as Scotty
 import qualified Database.SQLite.Simple as DB
@@ -97,6 +99,8 @@ main = do
 
 -- Any custom monad stack will need to implement 'MonadUnliftIO'
 -- server :: MonadUnliftIO m => ScottyT.ScottyT m ()
+server :: (HTML.ToMarkup a1, HTML.ToMarkup a2, HasCallStack)
+            => DB.Connection -> a2 -> a1 -> ScottyT.ScottyT IO ()
 server conn jsFile cssFile = do
     ScottyT.middleware MW.logStdoutDev
 
@@ -105,11 +109,20 @@ server conn jsFile cssFile = do
 -- Scotty.scotty port $ do
 
     ScottyT.get "/" $ do
+        ScottyT.html $ mconcat ["<a href=\"/switch/1\">Option 1 (Not Found)</a>"
+                       ,"<br/>"
+                       ,"<a href=\"/switch/2\">Option 2 (Forbidden)</a>"
+                       ,"<br/>"
+                       ,"<a href=\"/random\">Option 3 (Random)</a>"
+                       ]
+
+{-
+    ScottyT.get "/" $ do
         todos <- ScottyT.liftIO $
                     DB.query_ conn [sql|select id, todo from todos;|] :: Scotty.ActionM [ToDo]
                     -- DB.query_ conn [sql|select * from todos;|] :: Scotty.ActionM [ToDo]
 
-        Scotty.html $ renderHtml $ HTML.docTypeHtml $ do
+        ScottyT.html $ renderHtml $ HTML.docTypeHtml $ do
             HTML.head $ do
                 HTML.title "Talk to a Database | To-Do's"
 
@@ -141,6 +154,8 @@ server conn jsFile cssFile = do
                 HTML.form ! Attributes.action "/" ! Attributes.method "post" $ do
                     HTML.input ! Attributes.type_ "text" ! Attributes.name "todo"
                     HTML.input ! Attributes.type_ "submit" -- calls post on "/"
+
+-}
 
     Scotty.get "/admin" $ do
         todos <- Scotty.liftIO $
