@@ -38,11 +38,12 @@ import Text.Blaze.Html.Renderer.Text (renderHtml)
 import Data.Foldable (for_)
 import qualified Options
 import Options (Options(..))
+-- import qualified Web.Scotty.Internal.Types as ScottyT
 
 data ToDo = ToDo { id :: Int
                  , todo :: Text.Text
-                 , done :: Bool
-                 , done_date :: Text.Text
+                --  , done :: Bool
+                --  , done_date :: Text.Text
                  }
   deriving (Generic, FromRow, Show)
 
@@ -64,8 +65,8 @@ handleEx = ScottyT.Handler $ \case
     ScottyT.html $ fromString $ "<h1>" ++ s ++ "</h1>"
 
 updateForm1 :: ToDo -> HTML.Html
--- updateForm1 ToDo {id, todo} =
-updateForm1 ToDo {id, todo, done, done_date} =
+updateForm1 ToDo {id, todo} =
+-- updateForm1 ToDo {id, todo, done, done_date} =
     HTML.form ! Attributes.action ("/" <> HTML.toValue id)
               ! Attributes.method "post" $ do
         HTML.p $ HTML.toMarkup $ "Current: " <> todo
@@ -109,6 +110,19 @@ server conn jsFile cssFile = do
 -- Scotty.scotty port $ do
 
     ScottyT.get "/" $ do
+
+        todos <- ScottyT.liftIO $
+                    DB.query_ conn [sql|select id, todo from todos;|] :: Scotty.ActionM [ToDo]
+                    -- DB.query_ conn [sql|select * from todos;|] :: Scotty.ActionM [ToDo]
+
+        -- works when ToDo reverted back to just id & todo
+        -- ScottyT.raise $ fromString $ "ummm something something + " <> show todos
+
+        ScottyT.throw $ StringEx $ "ummm something something + " <> show todos
+
+        -- the following didn't display anything
+        -- .liftIO $ error $ "ummm something something + " <> show todos
+
         ScottyT.html $ mconcat ["<a href=\"/switch/1\">Option 1 (Not Found)</a>"
                        ,"<br/>"
                        ,"<a href=\"/switch/2\">Option 2 (Forbidden)</a>"
