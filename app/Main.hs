@@ -42,7 +42,7 @@ import Options (Options(..))
 
 data ToDo = ToDo { id :: Int
                  , todo :: Text.Text
-                --  , done :: Bool
+                 , done :: Bool
                 --  , done_date :: Text.Text
                  }
   deriving (Generic, FromRow, Show)
@@ -65,7 +65,8 @@ handleEx = ScottyT.Handler $ \case
     ScottyT.html $ fromString $ "<h1>" ++ s ++ "</h1>"
 
 updateForm1 :: ToDo -> HTML.Html
-updateForm1 ToDo {id, todo} =
+updateForm1 ToDo {id, todo, done} =
+-- updateForm1 ToDo {id, todo} =
 -- updateForm1 ToDo {id, todo, done, done_date} =
     HTML.form ! Attributes.action ("/" <> HTML.toValue id)
               ! Attributes.method "post" $ do
@@ -93,7 +94,7 @@ main = do
                             ( id INTEGER primary key autoincrement
                             , todo TEXT
                             , done BOOLEAN default FALSE
-                            , done_date TEXT
+                            -- , done_date TEXT
                             );|] -- between [sql| ... |] is a quasi-quoter, this is SQL not Haskell
 
         ScottyT.scottyT port Prelude.id (server conn jsFile cssFile) -- note: we use 'id' since we don't have to run any effects at each action
@@ -107,34 +108,13 @@ server conn jsFile cssFile = do
 
     ScottyT.defaultHandler handleEx    -- define what to do with uncaught exceptions
 
--- Scotty.scotty port $ do
-
     ScottyT.get "/" $ do
 
         todos <- ScottyT.liftIO $
-                    DB.query_ conn [sql|select id, todo from todos;|] :: Scotty.ActionM [ToDo]
-                    -- DB.query_ conn [sql|select * from todos;|] :: Scotty.ActionM [ToDo]
+                    DB.query_ conn [sql|select id, todo, done from todos;|] :: Scotty.ActionM [ToDo]
 
-        -- works when ToDo reverted back to just id & todo
-        -- ScottyT.raise $ fromString $ "ummm something something + " <> show todos
-
-        ScottyT.throw $ StringEx $ "ummm something something + " <> show todos
-
-        -- the following didn't display anything
-        -- .liftIO $ error $ "ummm something something + " <> show todos
-
-        ScottyT.html $ mconcat ["<a href=\"/switch/1\">Option 1 (Not Found)</a>"
-                       ,"<br/>"
-                       ,"<a href=\"/switch/2\">Option 2 (Forbidden)</a>"
-                       ,"<br/>"
-                       ,"<a href=\"/random\">Option 3 (Random)</a>"
-                       ]
-
-{-
-    ScottyT.get "/" $ do
-        todos <- ScottyT.liftIO $
-                    DB.query_ conn [sql|select id, todo from todos;|] :: Scotty.ActionM [ToDo]
-                    -- DB.query_ conn [sql|select * from todos;|] :: Scotty.ActionM [ToDo]
+        -- deprecated: ScottyT.raise $ fromString $ "ummm something something + " <> show todos
+        -- ScottyT.throw $ StringEx $ "ummm something something + " <> show todos
 
         ScottyT.html $ renderHtml $ HTML.docTypeHtml $ do
             HTML.head $ do
@@ -153,7 +133,7 @@ server conn jsFile cssFile = do
 
                 HTML.ul $ do
                     -- for_ todos $ \ToDo {id, todo} -> do
-                    for_ todos $ \ToDo {id, todo, done, done_date} -> do
+                    for_ todos $ \ToDo {id, todo, done} -> do
                         HTML.li ! Attributes.id ("todo-" <> HTML.toValue id) $ do
                             HTML.div ! Attributes.class_ "flex-container" $ do
 
@@ -169,14 +149,14 @@ server conn jsFile cssFile = do
                     HTML.input ! Attributes.type_ "text" ! Attributes.name "todo"
                     HTML.input ! Attributes.type_ "submit" -- calls post on "/"
 
--}
 
-    Scotty.get "/admin" $ do
-        todos <- Scotty.liftIO $
-                    DB.query_ conn [sql|select id, todo, done, done_date from todos;|] :: Scotty.ActionM [ToDo]
+
+    ScottyT.get "/admin" $ do
+        todos <- ScottyT.liftIO $
+                    DB.query_ conn [sql|select id, todo, done from todos;|] :: Scotty.ActionM [ToDo]
                     -- DB.query_ conn [sql|select id, todo from todos;|] :: Scotty.ActionM [ToDo]
 
-        Scotty.html $ renderHtml $ HTML.docTypeHtml $ do
+        ScottyT.html $ renderHtml $ HTML.docTypeHtml $ do
             HTML.head $ do
                 HTML.title "<< Admin Console >> Talk to a Database | To-Do's << Admin Console >>"
 
@@ -192,13 +172,20 @@ server conn jsFile cssFile = do
                 HTML.h1 "To-Do's"
 
                 HTML.ul $ do
-                    for_ todos $ \ToDo {id, todo} -> do
+                    for_ todos $ \ToDo {id, todo, done} -> do
                         HTML.li ! Attributes.id ("todo-" <> HTML.toValue id) $ do
                             HTML.div ! Attributes.class_ "flex-container" $ do
 
                                 HTML.a ! Attributes.name (HTML.toValue ("todo: " <> show id))
                                         ! Attributes.href ("/" <> HTML.toValue id)
                                         $ HTML.toMarkup todo
+
+                                HTML.input
+                                        ! Attributes.type_ "checkbox"
+                                        ! Attributes.disabled (HTML.toValue True)
+                                        ! Attributes.checked (HTML.toValue done)
+                                        ! Attributes.name "doneCheckbox"
+                                        ! Attributes.value (HTML.toValue done)
 
                                 HTML.button ! Attributes.value (HTML.toValue id)
                                             ! Attributes.onclick "deleteToDo(this)"
