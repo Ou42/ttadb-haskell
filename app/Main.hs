@@ -180,12 +180,15 @@ server conn jsFile cssFile = do
                                         ! Attributes.href ("/" <> HTML.toValue id)
                                         $ HTML.toMarkup todo
 
+                                HTML.p $ HTML.span (if done then "checked" else "!checkd")
+
                                 HTML.input
                                         ! Attributes.type_ "checkbox"
-                                        ! Attributes.disabled (HTML.toValue True)
-                                        ! Attributes.checked (HTML.toValue done)
                                         ! Attributes.name "doneCheckbox"
-                                        ! Attributes.value (HTML.toValue done)
+                                        -- ! Attributes.disabled (HTML.toValue True)
+                                        -- ! Attributes.checked (HTML.toValue False)
+                                        -- ! Attributes.checked (if done then "checked" else "")
+                                        -- ! Attributes.value (HTML.toValue done)
 
                                 HTML.button ! Attributes.value (HTML.toValue id)
                                             ! Attributes.onclick "deleteToDo(this)"
