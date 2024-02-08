@@ -64,6 +64,21 @@ handleEx = ScottyT.Handler $ \case
     ScottyT.status Status.status500
     ScottyT.html $ fromString $ "<h1>" ++ s ++ "</h1>"
 
+checkbox :: HTML.ToValue a => Bool -> a -> HTML.Html
+checkbox True id =
+    HTML.input
+        ! Attributes.type_ "checkbox"
+        ! Attributes.id ("doneCkbx-" <> HTML.toValue id)
+        ! Attributes.name ("doneCkbx-" <> HTML.toValue id)
+        ! Attributes.disabled (HTML.toValue True)
+        ! Attributes.checked "checked"
+
+checkbox False id =
+    HTML.input
+        ! Attributes.type_ "checkbox"
+        ! Attributes.id ("doneCkbx-" <> HTML.toValue id)
+        ! Attributes.name ("doneCkbx-" <> HTML.toValue id)
+
 updateForm1 :: ToDo -> HTML.Html
 updateForm1 ToDo {id, todo, done} =
 -- updateForm1 ToDo {id, todo} =
@@ -182,13 +197,7 @@ server conn jsFile cssFile = do
 
                                 HTML.p $ HTML.span (if done then "checked" else "!checkd")
 
-                                HTML.input
-                                        ! Attributes.type_ "checkbox"
-                                        ! Attributes.name "doneCheckbox"
-                                        -- ! Attributes.disabled (HTML.toValue True)
-                                        -- ! Attributes.checked (HTML.toValue False)
-                                        -- ! Attributes.checked (if done then "checked" else "")
-                                        -- ! Attributes.value (HTML.toValue done)
+                                checkbox done id
 
                                 HTML.button ! Attributes.value (HTML.toValue id)
                                             ! Attributes.onclick "deleteToDo(this)"
