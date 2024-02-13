@@ -38,12 +38,13 @@ import Text.Blaze.Html.Renderer.Text (renderHtml)
 import Data.Foldable (for_)
 import qualified Options
 import Options (Options(..))
+import Data.Time.Clock (UTCTime)
 -- import qualified Web.Scotty.Internal.Types as ScottyT
 
 data ToDo = ToDo { id :: Int
                  , todo :: Text.Text
-                 , done :: Bool
-                --  , done_date :: Text.Text
+                --  , done :: Bool -- *will* need to remove the column. make a temp table (copy), remove col, save temp table back as the primary table
+                 , done_date :: Maybe UTCTime -- Nothing == "not done", use FromField UTCTime <https://hackage.haskell.org/package/sqlite-simple-0.4.18.2/docs/Database-SQLite-Simple-FromField.html#t:FromField>
                  }
   deriving (Generic, FromRow, Show)
 
@@ -51,6 +52,7 @@ data ToDo = ToDo { id :: Int
 data Except = Forbidden | NotFound Int | StringEx String
     deriving (Show, Eq, Typeable, Exception)
 
+-- Also, convert to use Blaze-it (TM, Danny)
 -- | User-defined exceptions should have an associated Handler:
 handleEx :: MonadIO m => ScottyT.ErrorHandler m
 handleEx = ScottyT.Handler $ \case
@@ -108,8 +110,8 @@ main = do
         DB.execute_ conn [sql|create table if not exists todos
                             ( id INTEGER primary key autoincrement
                             , todo TEXT
-                            , done BOOLEAN default FALSE
-                            -- , done_date TEXT
+                            -- , done BOOLEAN default FALSE
+                            , done_date TEXT -- can add a check constraint: date time fmt
                             );|] -- between [sql| ... |] is a quasi-quoter, this is SQL not Haskell
 
         ScottyT.scottyT port Prelude.id (server conn jsFile cssFile) -- note: we use 'id' since we don't have to run any effects at each action
@@ -126,7 +128,7 @@ server conn jsFile cssFile = do
     ScottyT.get "/" $ do
 
         todos <- ScottyT.liftIO $
-                    DB.query_ conn [sql|select id, todo, done from todos;|] :: Scotty.ActionM [ToDo]
+                    DB.query_ conn [sql|select id, todo, done_date from todos;|] :: Scotty.ActionM [ToDo]
 
         -- deprecated: ScottyT.raise $ fromString $ "ummm something something + " <> show todos
         -- ScottyT.throw $ StringEx $ "ummm something something + " <> show todos
