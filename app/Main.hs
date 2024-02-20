@@ -7,7 +7,9 @@
 
 module Main where
 
-import Control.Exception (Exception(..))
+-- temp for testing
+import Control.Exception (Exception(..), throwIO)
+
 import Control.Monad.IO.Class ( MonadIO )
 import Control.Monad.IO.Unlift (MonadUnliftIO(..))
 import Data.String (fromString)
@@ -30,41 +32,51 @@ import qualified Data.Text.Lazy as Text.Lazy
 import Database.SQLite.Simple.FromRow (FromRow)
 import GHC.Generics (Generic)
 import qualified Network.HTTP.Types.Status as Status
+
 import qualified Text.Blaze.Html
 import qualified Text.Blaze.Html5 as HTML
 import qualified Text.Blaze.Html5.Attributes as Attributes
 import Text.Blaze.Html5 ((!))
 import Text.Blaze.Html.Renderer.Text (renderHtml)
+import qualified Text.Blaze.Html.Renderer.Utf8 as HTMLBS
+
 import Data.Foldable (for_)
 import qualified Options
 import Options (Options(..))
 import Data.Time.Clock (UTCTime)
--- import qualified Web.Scotty.Internal.Types as ScottyT
+-- import qualified Data.Aeson as scottyT
+
+import qualified Network.Wai.Handler.Warp as Warp
+import qualified Network.Wai as Wai
+import Data.Function ((&))
+
+-- import 
 
 data ToDo = ToDo { id :: Int
                  , todo :: Text.Text
-                --  , done :: Bool -- *will* need to remove the column. make a temp table (copy), remove col, save temp table back as the primary table
-                 , done_date :: Maybe UTCTime -- Nothing == "not done", use FromField UTCTime <https://hackage.haskell.org/package/sqlite-simple-0.4.18.2/docs/Database-SQLite-Simple-FromField.html#t:FromField>
+                 , done :: Bool -- *will* need to remove the column. make a temp table (copy), remove col, save temp table back as the primary table
+                 , done_date :: Text.Text
+                --  , done_date :: Maybe UTCTime -- Nothing == "not done", use FromField UTCTime <https://hackage.haskell.org/package/sqlite-simple-0.4.18.2/docs/Database-SQLite-Simple-FromField.html#t:FromField>
                  }
+
   deriving (Generic, FromRow, Show)
 
--- | A custom exception type.
-data Except = Forbidden | NotFound Int | StringEx String
-    deriving (Show, Eq, Typeable, Exception)
+settings :: Warp.Port -> Warp.Settings
+settings port = Warp.defaultSettings
+  & Warp.setPort port
+  & Warp.setOnException (\req e -> print e)
+  & Warp.setOnExceptionResponse (\e -> Wai.responseLBS Status.status500 mempty $ HTMLBS.renderHtml $ do
+        HTML.docTypeHtml $ do
+            HTML.head $ do
+                HTML.title "Error!"
 
--- Also, convert to use Blaze-it (TM, Danny)
--- | User-defined exceptions should have an associated Handler:
-handleEx :: MonadIO m => ScottyT.ErrorHandler m
-handleEx = ScottyT.Handler $ \case
-  Forbidden -> do
-    ScottyT.status Status.status403
-    ScottyT.html "<h1>Scotty Says No</h1>"
-  NotFound i -> do
-    ScottyT.status Status.status404
-    ScottyT.html $ fromString $ "<h1>Can't find " ++ show i ++ ".</h1>"
-  StringEx s -> do
-    ScottyT.status Status.status500
-    ScottyT.html $ fromString $ "<h1>" ++ s ++ "</h1>"
+                noFavIcon
+
+                HTML.body $ do
+                    HTML.h1 "Danger! Danger!"
+
+  )
+
 
 checkbox :: HTML.ToValue a => Bool -> a -> HTML.Html
 checkbox True id =
@@ -98,6 +110,9 @@ noFavIcon =
     HTML.link ! Attributes.rel "icon"
               ! Attributes.href "data:,"
 
+data Hello = Hello
+  deriving (Show, Exception)
+
 main :: IO ()
 main = do
     Options.Options { port, db } <- Options.getOptions
@@ -114,24 +129,24 @@ main = do
                             , done_date TEXT -- can add a check constraint: date time fmt
                             );|] -- between [sql| ... |] is a quasi-quoter, this is SQL not Haskell
 
-        ScottyT.scottyT port Prelude.id (server conn jsFile cssFile) -- note: we use 'id' since we don't have to run any effects at each action
+        let opts = ScottyT.defaultOptions { ScottyT.settings = settings port }
+
+        ScottyT.scottyOptsT opts Prelude.id (server conn jsFile cssFile) -- note: we use 'id' since we don't have to run any effects at each action
 
 -- Any custom monad stack will need to implement 'MonadUnliftIO'
 -- server :: MonadUnliftIO m => ScottyT.ScottyT m ()
 server :: (HTML.ToMarkup a1, HTML.ToMarkup a2, HasCallStack)
             => DB.Connection -> a2 -> a1 -> ScottyT.ScottyT IO ()
 server conn jsFile cssFile = do
-    ScottyT.middleware MW.logStdoutDev
-
-    ScottyT.defaultHandler handleEx    -- define what to do with uncaught exceptions
 
     ScottyT.get "/" $ do
 
+        ScottyT.liftIO $ print Hello
+        ScottyT.liftIO $ Control.Exception.throwIO Hello
+        Scotty.throw Hello
+
         todos <- ScottyT.liftIO $
                     DB.query_ conn [sql|select id, todo, done_date from todos;|] :: Scotty.ActionM [ToDo]
-
-        -- deprecated: ScottyT.raise $ fromString $ "ummm something something + " <> show todos
-        -- ScottyT.throw $ StringEx $ "ummm something something + " <> show todos
 
         ScottyT.html $ renderHtml $ HTML.docTypeHtml $ do
             HTML.head $ do
@@ -235,7 +250,7 @@ server conn jsFile cssFile = do
 
     Scotty.get "/:id" $ do
         id <- Scotty.captureParam "id"
-        
+
         todos <- Scotty.liftIO $
             -- DB.queryNamed conn [sql|select * from todos where id=:id ;|]
             DB.queryNamed conn [sql|select id, todo from todos where id=:id ;|]
