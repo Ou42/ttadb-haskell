@@ -33,6 +33,7 @@ executable ttadb
                       scotty,
                       aeson,
                       blaze-html ^>= 0.9,
+                      exceptions,
                       sqlite-simple ^>= 0.4,
                       text ^>= 1.2,
                       http-types ^>= 0.12,

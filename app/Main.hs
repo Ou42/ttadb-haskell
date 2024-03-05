@@ -4,6 +4,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Main where
 
@@ -49,8 +50,8 @@ import Data.Time.Clock (UTCTime)
 import qualified Network.Wai.Handler.Warp as Warp
 import qualified Network.Wai as Wai
 import Data.Function ((&))
+import qualified Control.Monad.Catch as Exception
 
--- import 
 
 data ToDo = ToDo { id :: Int
                  , todo :: Text.Text
@@ -131,7 +132,14 @@ main = do
 
         let opts = ScottyT.defaultOptions { ScottyT.settings = settings port }
 
-        ScottyT.scottyOptsT opts Prelude.id (server conn jsFile cssFile) -- note: we use 'id' since we don't have to run any effects at each action
+        let run :: IO Wai.Response -> IO Wai.Response
+            run action = action `Exception.catches` [
+                            Exception.Handler (\(e :: Exception.SomeException) -> do
+                                                        Scotty.liftIO (print e)
+                                                        throwIO e)
+                            ]
+        -- note: we use 'id' since we don't have to run any effects at each action
+        ScottyT.scottyOptsT opts run (server conn jsFile cssFile)
 
 -- Any custom monad stack will need to implement 'MonadUnliftIO'
 -- server :: MonadUnliftIO m => ScottyT.ScottyT m ()
@@ -141,7 +149,6 @@ server conn jsFile cssFile = do
 
     ScottyT.get "/" $ do
 
-        ScottyT.liftIO $ print Hello
         ScottyT.liftIO $ Control.Exception.throwIO Hello
         Scotty.throw Hello
 
