@@ -1,66 +1,68 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE ImportQualifiedPost #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Main where
 
--- temp for testing
-import Control.Exception (Exception(..), throwIO)
-
+import Control.Exception (Exception, SomeException)
 import Control.Monad.IO.Class ( MonadIO )
-import Control.Monad.IO.Unlift (MonadUnliftIO(..))
-import Data.String (fromString)
-import Data.Typeable ( Typeable )
-import qualified Network.Wai.Middleware.RequestLogger as MW
-import GHC.Stack (HasCallStack)
-
-import qualified Web.Scotty.Trans as ScottyT
-
-import Prelude hiding (id)
-import qualified Prelude
-
-import qualified Data.Text as Text
-import qualified Web.Scotty as Scotty
-import qualified Database.SQLite.Simple as DB
+import Database.SQLite.Simple.FromRow (FromRow)
 import Database.SQLite.Simple (NamedParam(..))
 import Database.SQLite.Simple.QQ (sql)
-import qualified Data.Text.Internal.Builder as Text
-import qualified Data.Text.Lazy as Text.Lazy
-import Database.SQLite.Simple.FromRow (FromRow)
-import GHC.Generics (Generic)
-import qualified Network.HTTP.Types.Status as Status
-
-import qualified Text.Blaze.Html
-import qualified Text.Blaze.Html5 as HTML
-import qualified Text.Blaze.Html5.Attributes as Attributes
-import Text.Blaze.Html5 ((!))
-import Text.Blaze.Html.Renderer.Text (renderHtml)
-import qualified Text.Blaze.Html.Renderer.Utf8 as HTMLBS
-
+import Database.SQLite.Simple qualified as DB
 import Data.Foldable (for_)
-import qualified Options
-import Options (Options(..))
-import Data.Time.Clock (UTCTime)
--- import qualified Data.Aeson as scottyT
-
-import qualified Network.Wai.Handler.Warp as Warp
-import qualified Network.Wai as Wai
 import Data.Function ((&))
-import qualified Control.Monad.Catch as Exception
+import Data.String (fromString)
+import Data.Text.Internal.Builder qualified as Text
+import Data.Text.Lazy qualified as Text.Lazy
+import Data.Text.Lazy (Text)
+import Data.Text qualified as Text
+import Data.Time.Clock (UTCTime)
+import Data.Typeable ( Typeable )
+import GHC.Generics (Generic)
+import GHC.Stack (HasCallStack)
+import Network.HTTP.Types.Status qualified as Status
+import Network.Wai.Handler.Warp qualified as Warp
+import Network.Wai.Middleware.RequestLogger qualified as MW
+import Network.Wai qualified as Wai
+import Options (Options(..))
+import Options qualified 
+import Prelude hiding (id)
+import Prelude qualified
+import Text.Blaze.Html5 ((!))
+import Text.Blaze.Html5.Attributes qualified as Attributes
+import Text.Blaze.Html5 qualified as HTML
+import Text.Blaze.Html qualified 
+import Text.Blaze.Html.Renderer.Text (renderHtml)
+import Text.Blaze.Html.Renderer.Utf8 qualified as HTMLBS
+import UnliftIO.Exception qualified as Exception
+import Web.Scotty qualified as Scotty
+import Web.Scotty.Trans qualified as ScottyT
 
 
 data ToDo = ToDo { id :: Int
                  , todo :: Text.Text
-                 , done :: Bool -- *will* need to remove the column. make a temp table (copy), remove col, save temp table back as the primary table
-                 , done_date :: Text.Text
-                --  , done_date :: Maybe UTCTime -- Nothing == "not done", use FromField UTCTime <https://hackage.haskell.org/package/sqlite-simple-0.4.18.2/docs/Database-SQLite-Simple-FromField.html#t:FromField>
+                 -- *NEED* to fix SQLite db: 
+                 --   1. *Make* a temp table (copy)
+                 --   2. *Remove* <done> col
+                 --   3. *Change* <done_date>'s type...
+                 --      ... to: `done_date :: Maybe UTCTime`
+                 --      ... Nothing == "not done"
+                 --      ... use FromField UTCTime
+                 --      ... <https://hackage.haskell.org
+                 --      ...               /package/sqlite-simple-0.4.18.2
+                 --      ...               /docs/Database-SQLite-Simple-FromField.html
+                 --      ...               #t:FromField>
+                 --   4. *Save* temp table back as the primary table
+                 , done :: Bool -- *this one*
+                 , done_date :: Text.Text -- *and this one*
                  }
-
-  deriving (Generic, FromRow, Show)
+                 deriving (Generic, FromRow, Show)
 
 settings :: Warp.Port -> Warp.Settings
 settings port = Warp.defaultSettings
@@ -77,7 +79,6 @@ settings port = Warp.defaultSettings
                     HTML.h1 "Danger! Danger!"
 
   )
-
 
 checkbox :: HTML.ToValue a => Bool -> a -> HTML.Html
 checkbox True id =
@@ -132,13 +133,8 @@ main = do
 
         let opts = ScottyT.defaultOptions { ScottyT.settings = settings port }
 
-        let run :: IO Wai.Response -> IO Wai.Response
-            run action = action `Exception.catches` [
-                            Exception.Handler (\(e :: Exception.SomeException) -> do
-                                                        Scotty.liftIO (print e)
-                                                        throwIO e)
-                            ]
-        -- note: we use 'id' since we don't have to run any effects at each action
+        let run = Prelude.id
+  -- note: we use 'id' since we don't have to run any effects at each action
         ScottyT.scottyOptsT opts run (server conn jsFile cssFile)
 
 -- Any custom monad stack will need to implement 'MonadUnliftIO'
@@ -147,11 +143,12 @@ server :: (HTML.ToMarkup a1, HTML.ToMarkup a2, HasCallStack)
             => DB.Connection -> a2 -> a1 -> ScottyT.ScottyT IO ()
 server conn jsFile cssFile = do
 
-    Scotty.get "/" $ do
+    -- get :: _ 
+    get "/" $ do
 
         -- Scotty.liftIO $ Control.Exception.throwIO Hello
         -- Scotty.throw Hello
-	Scotty.liftIO $ print "I'm processing a GET!" 
+        Scotty.liftIO $ print "I'm processing a GET!" 
 
         todos <- Scotty.liftIO $
                     DB.query_ conn [sql|select id, todo, done_date from todos;|] :: Scotty.ActionM [ToDo]
@@ -278,3 +275,16 @@ server conn jsFile cssFile = do
                                 <> mapM_ (HTML.toMarkup . todo) todos
 
                         mapM_ updateForm1 todos
+
+
+
+data Exc = Exc Text
+  deriving (Show, Exception)
+
+get :: Scotty.RoutePattern -> Scotty.ActionM () -> Scotty.ScottyM ()
+get p act =
+  Scotty.get p
+    (act `Exception.catch` (\(e :: SomeException) -> do
+                             Scotty.liftIO (print e)
+                             Exception.throwIO e))
+

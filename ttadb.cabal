@@ -1,12 +1,13 @@
 cabal-version:      2.4
 name:               ttadb
-version:            0.1.0.0
+version:            0.1.1.0
 
--- A short (one-line) description of the package.
--- synopsis:
+synopsis: Talk To a DataBase
 
--- A longer description of the package.
--- description:
+description:
+  A ToDo webapp written in Haskell,
+  that uses Scotty, BlazeHTML, and sqlite-simple
+  to interact with an SQLite Database
 
 -- A URL where users can report bugs.
 -- bug-reports:
@@ -33,12 +34,11 @@ executable ttadb
                       scotty,
                       aeson,
                       blaze-html ^>= 0.9,
-                      exceptions,
                       sqlite-simple ^>= 0.4,
                       text ^>= 1.2,
                       http-types ^>= 0.12,
                       optparse-applicative ^>= 0.18,
-                      unliftio-core,
+                      unliftio,
                       wai-extra,
                       wai,
                       warp,
