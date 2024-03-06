@@ -147,15 +147,16 @@ server :: (HTML.ToMarkup a1, HTML.ToMarkup a2, HasCallStack)
             => DB.Connection -> a2 -> a1 -> ScottyT.ScottyT IO ()
 server conn jsFile cssFile = do
 
-    ScottyT.get "/" $ do
+    Scotty.get "/" $ do
 
-        ScottyT.liftIO $ Control.Exception.throwIO Hello
-        Scotty.throw Hello
+        -- Scotty.liftIO $ Control.Exception.throwIO Hello
+        -- Scotty.throw Hello
+	Scotty.liftIO $ print "I'm processing a GET!" 
 
-        todos <- ScottyT.liftIO $
+        todos <- Scotty.liftIO $
                     DB.query_ conn [sql|select id, todo, done_date from todos;|] :: Scotty.ActionM [ToDo]
 
-        ScottyT.html $ renderHtml $ HTML.docTypeHtml $ do
+        Scotty.html $ renderHtml $ HTML.docTypeHtml $ do
             HTML.head $ do
                 HTML.title "Talk to a Database | To-Do's"
 
