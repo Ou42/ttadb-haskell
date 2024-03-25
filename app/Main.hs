@@ -48,20 +48,13 @@ import Web.Scotty.Trans qualified as ScottyT
 
 data ToDo = ToDo { id :: Int
                  , todo :: Text.Text
-                 -- *NEED* to fix SQLite db: 
-                 --   1. *Make* a temp table (copy)
-                 --   2. *Remove* <done> col
-                 --   3. *Change* <done_date>'s type...
-                 --      ... to: `done_date :: Maybe UTCTime`
+                 , done_date :: Maybe UTCTime 
                  --      ... Nothing == "not done"
                  --      ... use FromField UTCTime
                  --      ... <https://hackage.haskell.org
                  --      ...               /package/sqlite-simple-0.4.18.2
                  --      ...               /docs/Database-SQLite-Simple-FromField.html
                  --      ...               #t:FromField>
-                 --   4. *Save* temp table back as the primary table
-                 , done :: Bool -- *this one*
-                 -- , done_date :: Text.Text -- *and this one*
                  }
                  deriving (Generic, FromRow, Show)
 
@@ -94,7 +87,7 @@ checkbox False id =
         ! Attributes.name ("doneCkbx-" <> HTML.toValue id)
 
 updateForm1 :: ToDo -> HTML.Html
-updateForm1 ToDo {id, todo, done} =
+updateForm1 ToDo {id, todo, done_date} =
 -- updateForm1 ToDo {id, todo} =
 -- updateForm1 ToDo {id, todo, done, done_date} =
     HTML.form ! Attributes.action ("/" <> HTML.toValue id)
@@ -164,7 +157,7 @@ server conn = do
 
                 HTML.ul $ do
                     -- for_ todos $ \ToDo {id, todo} -> do
-                    for_ todos $ \ToDo {id, todo, done} -> do
+                    for_ todos $ \ToDo {id, todo, done_date} -> do
                         HTML.li ! Attributes.id ("todo-" <> HTML.toValue id) $ do
                             HTML.div ! Attributes.class_ "flex-container" $ do
 
@@ -186,11 +179,11 @@ server conn = do
         headTag "CSS Test page"
 
         HTML.ul $ do
-            let todos = [ ToDo { id = 0, todo = "zero", done = True }
-                        , ToDo { id = 1, todo = "one", done = False }
+            let todos = [ ToDo { id = 0, todo = "zero", done_date = Nothing }
+                        , ToDo { id = 1, todo = "one", done_date = Nothing }
                         ]
 
-            for_ todos $ \ToDo {id, todo, done} -> do
+            for_ todos $ \ToDo {id, todo, done_date} -> do
                 HTML.li ! Attributes.id ("todo-" <> HTML.toValue id) $ do
                     HTML.div ! Attributes.class_ "flex-container" $ do
 
@@ -207,7 +200,8 @@ server conn = do
 
     get "/admin" $ do
         todos <- Scotty.liftIO $
-                    DB.query_ conn [sql|select id, todo, done from todos;|] :: Scotty.ActionM [ToDo]
+                    DB.query_ conn [sql|select id, todo, done_date from todos;|]
+                        :: Scotty.ActionM [ToDo]
                     -- DB.query_ conn [sql|select id, todo from todos;|] :: Scotty.ActionM [ToDo]
 
         Scotty.html $ renderHtml $ HTML.docTypeHtml $ do
@@ -217,7 +211,7 @@ server conn = do
                 HTML.h1 "To-Do's"
 
                 HTML.ul $ do
-                    for_ todos $ \ToDo {id, todo, done} -> do
+                    for_ todos $ \ToDo {id, todo, done_date} -> do
                         HTML.li ! Attributes.id ("todo-" <> HTML.toValue id) $ do
                             HTML.div ! Attributes.class_ "flex-container" $ do
 
@@ -225,9 +219,9 @@ server conn = do
                                         ! Attributes.href ("/" <> HTML.toValue id)
                                         $ HTML.toMarkup todo
 
-                                HTML.p $ HTML.span (if done then "checked" else "!checkd")
+                                -- HTML.p $ HTML.span (if done then "checked" else "!checkd")
 
-                                checkbox done id
+                                -- checkbox done id
 
                                 HTML.button ! Attributes.value (HTML.toValue id)
                                             ! Attributes.onclick "deleteToDo(this)"
