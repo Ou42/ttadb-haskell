@@ -27,3 +27,4 @@ Q-09: PUT vs PATCH?!
       <https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/PATCH>
 Q-10: remove fav-icon not found! A: .link ! Attr.rel & .href
 */
+

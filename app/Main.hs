@@ -29,6 +29,7 @@ import GHC.Stack (HasCallStack)
 import Network.HTTP.Types.Status qualified as Status
 import Network.Wai.Handler.Warp qualified as Warp
 import Network.Wai.Middleware.RequestLogger qualified as MW
+import Network.Wai.Middleware.Static
 import Network.Wai qualified as Wai
 import Options (Options(..))
 import Options qualified 
@@ -60,7 +61,7 @@ data ToDo = ToDo { id :: Int
                  --      ...               #t:FromField>
                  --   4. *Save* temp table back as the primary table
                  , done :: Bool -- *this one*
-                 , done_date :: Text.Text -- *and this one*
+                 -- , done_date :: Text.Text -- *and this one*
                  }
                  deriving (Generic, FromRow, Show)
 
@@ -70,13 +71,10 @@ settings port = Warp.defaultSettings
   & Warp.setOnException (\req e -> print e)
   & Warp.setOnExceptionResponse (\e -> Wai.responseLBS Status.status500 mempty $ HTMLBS.renderHtml $ do
         HTML.docTypeHtml $ do
-            HTML.head $ do
-                HTML.title "Error!"
+            headTag "Error! Error!"
 
-                noFavIcon
-
-                HTML.body $ do
-                    HTML.h1 "Danger! Danger!"
+            HTML.body $ do
+                HTML.h1 "Danger! Danger!"
 
   )
 
@@ -119,8 +117,7 @@ main :: IO ()
 main = do
     Options.Options { port, db } <- Options.getOptions
 
-    jsFile <- readFile "app/utils.js"
-    cssFile <- readFile "app/main.css"
+    -- jsFile <- readFile "app/utils.js"
 
     DB.withConnection db $ \conn -> do
 
@@ -135,13 +132,19 @@ main = do
 
         let run = Prelude.id
   -- note: we use 'id' since we don't have to run any effects at each action
-        ScottyT.scottyOptsT opts run (server conn jsFile cssFile)
+        ScottyT.scottyOptsT opts run (server conn)
+        -- ScottyT.scottyOptsT opts run (server conn jsFile cssFile)
 
 -- Any custom monad stack will need to implement 'MonadUnliftIO'
 -- server :: MonadUnliftIO m => ScottyT.ScottyT m ()
-server :: (HTML.ToMarkup a1, HTML.ToMarkup a2, HasCallStack)
-            => DB.Connection -> a2 -> a1 -> ScottyT.ScottyT IO ()
-server conn jsFile cssFile = do
+-- server :: (HTML.ToMarkup a1, HTML.ToMarkup a2, HasCallStack)
+--            => DB.Connection -> a2 -> a1 -> ScottyT.ScottyT IO ()
+-- server conn jsFile cssFile = do
+
+server :: (HasCallStack) => DB.Connection -> ScottyT.ScottyT IO ()
+server conn = do
+    Scotty.middleware MW.logStdoutDev
+    Scotty.middleware $ staticPolicy (noDots >-> addBase "static")
 
     -- get :: _ 
     get "/" $ do
@@ -151,19 +154,10 @@ server conn jsFile cssFile = do
         Scotty.liftIO $ print "I'm processing a GET!" 
 
         todos <- Scotty.liftIO $
-                    DB.query_ conn [sql|select id, todo, done_date from todos;|] :: Scotty.ActionM [ToDo]
+            DB.query_ conn [sql|select id, todo, done_date from todos;|] :: Scotty.ActionM [ToDo]
 
         Scotty.html $ renderHtml $ HTML.docTypeHtml $ do
-            HTML.head $ do
-                HTML.title "Talk to a Database | To-Do's"
-
-                noFavIcon
-
-                HTML.style $ HTML.toMarkup cssFile
-
-                HTML.script $ do
-                    -- // JS funcs called when buttons clicked
-                    HTML.toMarkup jsFile
+            headTag "To-Do's"
 
             HTML.body $ do
                 HTML.h1 "To-Do's"
@@ -187,23 +181,37 @@ server conn jsFile cssFile = do
                     HTML.input ! Attributes.type_ "submit" -- calls post on "/"
 
 
+    get "/csstest" $ do
+      Scotty.html $ renderHtml $ HTML.docTypeHtml $ do
+        headTag "CSS Test page"
 
-    ScottyT.get "/admin" $ do
-        todos <- ScottyT.liftIO $
+        HTML.ul $ do
+            let todos = [ ToDo { id = 0, todo = "zero", done = True }
+                        , ToDo { id = 1, todo = "one", done = False }
+                        ]
+
+            for_ todos $ \ToDo {id, todo, done} -> do
+                HTML.li ! Attributes.id ("todo-" <> HTML.toValue id) $ do
+                    HTML.div ! Attributes.class_ "flex-container" $ do
+
+                        HTML.a ! Attributes.name (HTML.toValue ("todo: " <> show id))
+                                ! Attributes.href ("/" <> HTML.toValue id)
+                                $ HTML.toMarkup todo
+
+
+                        let toConsole = "console.log('*NOT* deleting: ' + this + ' btn: ' + this.value)"
+                        HTML.button ! Attributes.value (HTML.toValue id)
+                                    ! Attributes.onclick toConsole 
+                                    -- ! Attributes.onclick "DONOTdeleteToDo(this)"
+                                    $ "do nothing" -- "delete"
+
+    get "/admin" $ do
+        todos <- Scotty.liftIO $
                     DB.query_ conn [sql|select id, todo, done from todos;|] :: Scotty.ActionM [ToDo]
                     -- DB.query_ conn [sql|select id, todo from todos;|] :: Scotty.ActionM [ToDo]
 
-        ScottyT.html $ renderHtml $ HTML.docTypeHtml $ do
-            HTML.head $ do
-                HTML.title "<< Admin Console >> Talk to a Database | To-Do's << Admin Console >>"
-
-                noFavIcon
-
-                HTML.style $ HTML.toMarkup cssFile
-
-                HTML.script $ do
-                    -- // JS funcs called when buttons clicked
-                    HTML.toMarkup jsFile
+        Scotty.html $ renderHtml $ HTML.docTypeHtml $ do
+            headTag "<< Admin Console >>"
 
             HTML.body $ do
                 HTML.h1 "To-Do's"
@@ -265,10 +273,7 @@ server conn jsFile cssFile = do
                 Scotty.status Status.status404
             else
                 Scotty.html $ renderHtml $ HTML.docTypeHtml $ do
-                    HTML.head $ do
-                        HTML.title $ mapM_ (HTML.toMarkup . todo) todos
-
-                        noFavIcon
+                    headTag $ mapM_ (HTML.toMarkup . todo) todos
 
                     HTML.body $ do
                         HTML.h1 $ HTML.toMarkup (Text.pack "Editing: ")
@@ -277,6 +282,17 @@ server conn jsFile cssFile = do
                         mapM_ updateForm1 todos
 
 
+headTag title =
+  HTML.head $ do
+    HTML.link ! Attributes.rel "stylesheet" ! Attributes.href "main.css"
+    HTML.title $ "Talk to a Database | " <> title
+
+    noFavIcon
+
+    -- jsFile <- readFile "app/utils.js"
+    -- // JS callback funcs.  Called when a button is clicked.
+    -- HTML.script $ HTML.toMarkup jsFile
+    HTML.script ! Attributes.type_ "text/javascript" ! Attributes.src "utils.js" $ mempty
 
 data Exc = Exc Text
   deriving (Show, Exception)

@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               ttadb
-version:            0.1.1.0
+version:            0.1.2.0
 
 synopsis: Talk To a DataBase
 
@@ -41,6 +41,7 @@ executable ttadb
                       unliftio,
                       wai-extra,
                       wai,
+                      wai-middleware-static ^>= 0.9,
                       warp,
                       time
 
