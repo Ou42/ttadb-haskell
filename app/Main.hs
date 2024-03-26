@@ -110,8 +110,6 @@ main :: IO ()
 main = do
     Options.Options { port, db } <- Options.getOptions
 
-    -- jsFile <- readFile "app/utils.js"
-
     DB.withConnection db $ \conn -> do
 
         DB.execute_ conn [sql|create table if not exists todos
@@ -142,8 +140,6 @@ server conn = do
     -- get :: _ 
     get "/" $ do
 
-        -- Scotty.liftIO $ Control.Exception.throwIO Hello
-        -- Scotty.throw Hello
         Scotty.liftIO $ print "I'm processing a GET!" 
 
         todos <- Scotty.liftIO $
@@ -173,36 +169,10 @@ server conn = do
                     HTML.input ! Attributes.type_ "text" ! Attributes.name "todo"
                     HTML.input ! Attributes.type_ "submit" -- calls post on "/"
 
-
-    get "/csstest" $ do
-      Scotty.html $ renderHtml $ HTML.docTypeHtml $ do
-        headTag "CSS Test page"
-
-        HTML.ul $ do
-            let todos = [ ToDo { id = 0, todo = "zero", done_date = Nothing }
-                        , ToDo { id = 1, todo = "one", done_date = Nothing }
-                        ]
-
-            for_ todos $ \ToDo {id, todo, done_date} -> do
-                HTML.li ! Attributes.id ("todo-" <> HTML.toValue id) $ do
-                    HTML.div ! Attributes.class_ "flex-container" $ do
-
-                        HTML.a ! Attributes.name (HTML.toValue ("todo: " <> show id))
-                                ! Attributes.href ("/" <> HTML.toValue id)
-                                $ HTML.toMarkup todo
-
-
-                        let toConsole = "console.log('*NOT* deleting: ' + this + ' btn: ' + this.value)"
-                        HTML.button ! Attributes.value (HTML.toValue id)
-                                    ! Attributes.onclick toConsole 
-                                    -- ! Attributes.onclick "DONOTdeleteToDo(this)"
-                                    $ "do nothing" -- "delete"
-
     get "/admin" $ do
         todos <- Scotty.liftIO $
                     DB.query_ conn [sql|select id, todo, done_date from todos;|]
                         :: Scotty.ActionM [ToDo]
-                    -- DB.query_ conn [sql|select id, todo from todos;|] :: Scotty.ActionM [ToDo]
 
         Scotty.html $ renderHtml $ HTML.docTypeHtml $ do
             headTag "<< Admin Console >>"
@@ -231,7 +201,7 @@ server conn = do
                     HTML.input ! Attributes.type_ "text" ! Attributes.name "todo"
                     HTML.input ! Attributes.type_ "submit" -- calls post on "/"
 
-    Scotty.post "/" $ do
+    post "/" $ do
         todo <- Scotty.formParam "todo"
         -- Scotty.liftAndCatchIO $
         Scotty.liftIO $
@@ -239,7 +209,7 @@ server conn = do
 
         Scotty.redirect "/"
 
-    Scotty.post "/:id" $ do
+    post "/:id" $ do
         id <- Scotty.captureParam "id"      -- capture is URL
         todo <- Scotty.formParam "todo"  -- form is request body
         Scotty.liftIO $
@@ -249,18 +219,17 @@ server conn = do
         Scotty.redirect ("/" <> Text.Lazy.pack (show id))
 
 
-    Scotty.delete "/:id" $ do
+    delete "/:id" $ do
         id <- Scotty.captureParam "id"
         Scotty.liftIO $
             DB.executeNamed conn [sql|delete from todos where id=:id ;|]
                 [ ":id" := (id :: Int) ]
 
-    Scotty.get "/:id" $ do
+    get "/:id" $ do
         id <- Scotty.captureParam "id"
 
         todos <- Scotty.liftIO $
-            -- DB.queryNamed conn [sql|select * from todos where id=:id ;|]
-            DB.queryNamed conn [sql|select id, todo from todos where id=:id ;|]
+            DB.queryNamed conn [sql|select id, todo, done_date from todos where id=:id ;|]
                 [ ":id" := (id :: Int) ] :: Scotty.ActionM [ToDo]
         if null todos
             then
@@ -294,6 +263,20 @@ data Exc = Exc Text
 get :: Scotty.RoutePattern -> Scotty.ActionM () -> Scotty.ScottyM ()
 get p act =
   Scotty.get p
+    (act `Exception.catch` (\(e :: SomeException) -> do
+                             Scotty.liftIO (print e)
+                             Exception.throwIO e))
+
+post :: Scotty.RoutePattern -> Scotty.ActionM () -> Scotty.ScottyM ()
+post p act =
+  Scotty.post p
+    (act `Exception.catch` (\(e :: SomeException) -> do
+                             Scotty.liftIO (print e)
+                             Exception.throwIO e))
+
+delete :: Scotty.RoutePattern -> Scotty.ActionM () -> Scotty.ScottyM ()
+delete p act =
+  Scotty.delete p
     (act `Exception.catch` (\(e :: SomeException) -> do
                              Scotty.liftIO (print e)
                              Exception.throwIO e))
