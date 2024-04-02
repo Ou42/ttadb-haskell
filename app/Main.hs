@@ -108,7 +108,7 @@ data Hello = Hello
 
 main :: IO ()
 main = do
-    Options.Options { port, db } <- Options.getOptions
+    argv@Options.Options { port, db } <- Options.getOptions
 
     DB.withConnection db $ \conn -> do
 
@@ -123,19 +123,12 @@ main = do
 
         let run = Prelude.id
   -- note: we use 'id' since we don't have to run any effects at each action
-        ScottyT.scottyOptsT opts run (server conn)
-        -- ScottyT.scottyOptsT opts run (server conn jsFile cssFile)
+        ScottyT.scottyOptsT opts run (server conn argv)
 
--- Any custom monad stack will need to implement 'MonadUnliftIO'
--- server :: MonadUnliftIO m => ScottyT.ScottyT m ()
--- server :: (HTML.ToMarkup a1, HTML.ToMarkup a2, HasCallStack)
---            => DB.Connection -> a2 -> a1 -> ScottyT.ScottyT IO ()
--- server conn jsFile cssFile = do
-
-server :: (HasCallStack) => DB.Connection -> ScottyT.ScottyT IO ()
-server conn = do
-    Scotty.middleware MW.logStdoutDev
-    Scotty.middleware $ staticPolicy (noDots >-> addBase "static")
+server :: (HasCallStack) => DB.Connection -> Options.Options -> ScottyT.ScottyT IO ()
+server conn Options.Options { staticDir, reqLogger } = do
+    Scotty.middleware reqLogger
+    Scotty.middleware $ staticPolicy (noDots >-> addBase staticDir)
 
     -- get :: _ 
     get "/" $ do
