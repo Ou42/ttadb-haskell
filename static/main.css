@@ -1,12 +1,22 @@
 /* * { margin: 0px; padding: 0px; box-sizing: border-box; } */
 
-a { 
-    text-decoration: none;
+body {
     color: white;
+    background: black;
+}
+
+checkbox {
+  float: left;
+  width: 20px;
 }
 
 li {
-    background-color: cornflowerblue;
+    border-style: none none solid none;
+}
+
+a { 
+    text-decoration: none;
+    color: white;
 }
 
 .flex-container {
@@ -15,7 +25,6 @@ li {
 
 .flex-container a {
     flex: 0 0 33%;
-    background-color: lightslategray;
 }
 
 .flex-container button {

@@ -160,7 +160,7 @@ server conn Options.Options { staticDir, reqLogger } = do
                                      HTML.input ! Attributes.type_ "checkbox"
                                                 ! Attributes.name (HTML.toValue ("ckbx: " <> show id))
                                                 ! Attributes.onclick "alert('Checkbox clicked')"
-                                     HTML.div $ HTML.toMarkup $ case done_date of
+                                     HTML.label $ HTML.toMarkup $ case done_date of
                                         Just datetime -> show datetime
                                         Nothing       -> "not done"
                                               -- Scotty.liftIO $ print "Checkbox clicked"
