@@ -151,12 +151,19 @@ server conn Options.Options { staticDir, reqLogger } = do
                             HTML.div ! Attributes.class_ "flex-container" $ do
 
                                 HTML.a ! Attributes.name (HTML.toValue ("todo: " <> show id))
-                                        ! Attributes.href ("/" <> HTML.toValue id)
-                                        $ HTML.toMarkup todo
+                                       ! Attributes.href ("/" <> HTML.toValue id)
+                                       $ HTML.toMarkup todo
 
-                                HTML.button ! Attributes.value (HTML.toValue id)
-                                            ! Attributes.onclick "deleteToDo(this)"
-                                            $ "delete"
+                                HTML.form
+                                  ! Attributes.action "/"
+                                  ! Attributes.method "post" $ do
+                                     HTML.input ! Attributes.type_ "checkbox"
+                                                ! Attributes.name (HTML.toValue ("ckbx: " <> show id))
+                                                ! Attributes.onclick "alert('Checkbox clicked')"
+                                     HTML.div $ HTML.toMarkup $ case done_date of
+                                        Just datetime -> show datetime
+                                        Nothing       -> "not done"
+                                              -- Scotty.liftIO $ print "Checkbox clicked"
 
                 HTML.form ! Attributes.action "/" ! Attributes.method "post" $ do
                     HTML.input ! Attributes.type_ "text" ! Attributes.name "todo"
