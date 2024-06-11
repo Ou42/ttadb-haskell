@@ -138,6 +138,8 @@ server conn Options.Options { staticDir, reqLogger } = do
         todos <- Scotty.liftIO $
             DB.query_ conn [sql|select id, todo, done_date from todos;|] :: Scotty.ActionM [ToDo]
 
+        Scotty.addHeader "cache-control" "no-store"
+
         Scotty.html $ renderHtml $ HTML.docTypeHtml $ do
             headTag "To-Do's"
 
