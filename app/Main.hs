@@ -43,8 +43,6 @@ import Text.Blaze.Html.Renderer.Text (renderHtml)
 import Text.Blaze.Html.Renderer.Utf8 qualified as HTMLBS
 import UnliftIO.Exception qualified as Exception
 import Web.Scotty qualified as Scotty
-import Web.Scotty.Trans qualified as ScottyT
-
 
 data ToDo = ToDo { id :: Int
                  , todo :: Text.Text
@@ -88,8 +86,6 @@ checkbox False id =
 
 updateForm1 :: ToDo -> HTML.Html
 updateForm1 ToDo {id, todo, done_date} =
--- updateForm1 ToDo {id, todo} =
--- updateForm1 ToDo {id, todo, done, done_date} =
     HTML.form ! Attributes.action ("/" <> HTML.toValue id)
               ! Attributes.method "post" $ do
         HTML.p $ HTML.toMarkup $ "Current: " <> todo
@@ -115,22 +111,18 @@ main = do
         DB.execute_ conn [sql|create table if not exists todos
                             ( id INTEGER primary key autoincrement
                             , todo TEXT
-                            -- , done BOOLEAN default FALSE
                             , done_date TEXT -- can add a check constraint: date time fmt
                             );|] -- between [sql| ... |] is a quasi-quoter, this is SQL not Haskell
 
-        let opts = ScottyT.defaultOptions { ScottyT.settings = settings port }
+        let opts = Scotty.defaultOptions { Scotty.settings = settings port }
 
-        let run = Prelude.id
-  -- note: we use 'id' since we don't have to run any effects at each action
-        ScottyT.scottyOptsT opts run (server conn argv)
+        Scotty.scottyOpts opts (server conn argv)
 
-server :: (HasCallStack) => DB.Connection -> Options.Options -> ScottyT.ScottyT IO ()
+server :: (HasCallStack) => DB.Connection -> Options.Options -> Scotty.ScottyM ()
 server conn Options.Options { staticDir, reqLogger } = do
     Scotty.middleware reqLogger
     Scotty.middleware $ staticPolicy (noDots >-> addBase staticDir)
 
-    -- get :: _ 
     get "/" $ do
 
         Scotty.liftIO $ print "I'm processing a GET!" 
@@ -147,7 +139,6 @@ server conn Options.Options { staticDir, reqLogger } = do
                 HTML.h1 "To-Do's"
 
                 HTML.ul $ do
-                    -- for_ todos $ \ToDo {id, todo} -> do
                     for_ todos $ \ToDo {id, todo, done_date} -> do
                         HTML.li ! Attributes.id ("todo-" <> HTML.toValue id) $ do
                             HTML.div ! Attributes.class_ "flex-container" $ do
@@ -194,10 +185,6 @@ server conn Options.Options { staticDir, reqLogger } = do
                                         ! Attributes.href ("/" <> HTML.toValue id)
                                         $ HTML.toMarkup todo
 
-                                -- HTML.p $ HTML.span (if done then "checked" else "!checkd")
-
-                                -- checkbox done id
-
                                 HTML.button ! Attributes.value (HTML.toValue id)
                                             ! Attributes.onclick "deleteToDo(this)"
                                             $ "delete"
@@ -208,7 +195,6 @@ server conn Options.Options { staticDir, reqLogger } = do
 
     post "/" $ do
         todo <- Scotty.formParam "todo"
-        -- Scotty.liftAndCatchIO $
         Scotty.liftIO $
             DB.execute conn [sql|insert into todos (todo) values (?);|] (DB.Only todo :: DB.Only Text.Text)
 
@@ -264,9 +250,6 @@ headTag title =
 
     noFavIcon
 
-    -- jsFile <- readFile "app/utils.js"
-    -- // JS callback funcs.  Called when a button is clicked.
-    -- HTML.script $ HTML.toMarkup jsFile
     HTML.script ! Attributes.type_ "text/javascript" ! Attributes.src "utils.js" $ mempty
 
 data Exc = Exc Text
