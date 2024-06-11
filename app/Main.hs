@@ -157,11 +157,14 @@ server conn Options.Options { staticDir, reqLogger } = do
                                        $ HTML.toMarkup todo
 
                                 HTML.form
-                                  ! Attributes.action "/"
+                                  ! Attributes.action "/done"
                                   ! Attributes.method "post" $ do
-                                     HTML.input ! Attributes.type_ "checkbox"
-                                                ! Attributes.name (HTML.toValue ("ckbx: " <> show id))
-                                                ! Attributes.onclick "alert('Checkbox clicked')"
+                                     HTML.input  ! Attributes.type_ "hidden"
+                                                 ! Attributes.name "id"
+                                                 ! Attributes.value (HTML.toValue id)
+                                     HTML.button ! Attributes.type_ "submit" $ do
+                                       "done"
+
                                      HTML.label $ HTML.toMarkup $ case done_date of
                                         Just datetime -> show datetime
                                         Nothing       -> "not done"
@@ -209,6 +212,13 @@ server conn Options.Options { staticDir, reqLogger } = do
         Scotty.liftIO $
             DB.execute conn [sql|insert into todos (todo) values (?);|] (DB.Only todo :: DB.Only Text.Text)
 
+        Scotty.redirect "/"
+
+    post "/done" $ do
+        id <- Scotty.formParam "id"
+        Scotty.liftIO $
+            DB.executeNamed conn [sql|update todos set done_date=datetime() where id=:id;|]
+                [ ":id" := (id :: Int) ]
         Scotty.redirect "/"
 
     post "/:id" $ do
