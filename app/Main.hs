@@ -203,13 +203,6 @@ server conn Options.Options { staticDir, reqLogger } = do
 
         Scotty.redirect "/"
 
-    post "/done" $ do
-        id <- Scotty.formParam "id"
-        Scotty.liftIO $
-            DB.executeNamed conn [sql|update todos set done_date=datetime() where id=:id;|]
-                [ ":id" := (id :: Int) ]
-        Scotty.redirect "/"
-
     post "/:id" $ do
         id <- Scotty.captureParam "id"        -- capture is path part of the URL
         todo <- Scotty.formParamMaybe "todo"  -- form is request body
