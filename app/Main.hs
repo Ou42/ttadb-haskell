@@ -156,11 +156,11 @@ server conn Options.Options { staticDir, reqLogger } = do
                                        $ HTML.toMarkup todo
 
                                 HTML.form
-                                  ! Attributes.action "/done"
+                                  ! Attributes.action ("/" <> HTML.toValue id <> "?next=%2F")
                                   ! Attributes.method "post" $ do
                                      HTML.input  ! Attributes.type_ "hidden"
-                                                 ! Attributes.name "id"
-                                                 ! Attributes.value (HTML.toValue id)
+                                                 ! Attributes.name "done"
+                                                 ! Attributes.value (HTML.toValue True)
                                      HTML.button ! Attributes.type_ "submit" $ do
                                        "done"
 
