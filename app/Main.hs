@@ -207,11 +207,14 @@ server conn Options.Options { staticDir, reqLogger } = do
     post "/:id" $ do
         id <- Scotty.captureParam "id"      -- capture is URL
         todo <- Scotty.formParam "todo"  -- form is request body
+        next <- Scotty.queryParamMaybe "next"
         Scotty.liftIO $
             DB.executeNamed conn [sql|update todos set todo=:todo where id=:id;|]
                 [ ":id" := (id :: Int), ":todo" := (todo :: Text.Text) ]
 
-        Scotty.redirect ("/" <> Text.Lazy.pack (show id))
+        Scotty.redirect $ case next of
+            Nothing -> ("/" <> Text.Lazy.pack (show id))
+            Just p  -> p
 
 
     delete "/:id" $ do
