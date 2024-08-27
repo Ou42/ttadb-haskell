@@ -19,11 +19,13 @@ import Data.Foldable (for_)
 import Data.Function ((&))
 import Data.String (fromString)
 import Data.ByteString.Lazy qualified as ByteString.Lazy
+import Data.ByteString qualified as ByteString
 import Data.Text.Internal.Builder qualified as Text
 import Data.Text.Lazy qualified as Text.Lazy
 import Data.Text.Lazy (Text)
 import Data.Text qualified as Text
-import Data.Text.Lazy.Encoding qualified as Text.Encoding
+import Data.Text.Lazy.Encoding qualified as Text.Lazy.Encoding
+import Data.Text.Encoding qualified as Text.Encoding
 import Data.Time.Clock (UTCTime)
 import Data.Typeable ( Typeable )
 import GHC.Generics (Generic)
@@ -89,7 +91,8 @@ checkbox False id =
 
 updateForm1 :: ToDo -> HTML.Html
 updateForm1 ToDo {id, todo, done_date} =
-    HTML.form ! Attributes.action ("/" <> HTML.toValue id)
+    let next = URI.urlEncode False ("/" <> Text.Encoding.encodeUtf8 (Text.pack (show id))) in
+    HTML.form ! Attributes.action ("/" <> HTML.toValue id <> "?next=" <> HTML.toValue (Text.Encoding.decodeUtf8 next))
               ! Attributes.method "post" $ do
         HTML.p $ HTML.toMarkup $ "Current: " <> todo
         HTML.label ! Attributes.for "todo"
@@ -217,7 +220,7 @@ server conn Options.Options { staticDir, reqLogger } = do
 
         Scotty.redirect $ case next of
             Nothing -> ("/" <> Text.Lazy.pack (show id))
-            Just p  -> Text.Encoding.decodeUtf8 $ ByteString.Lazy.fromStrict $ URI.urlDecode False p
+            Just p  -> Text.Lazy.Encoding.decodeUtf8 $ ByteString.Lazy.fromStrict $ URI.urlDecode False p
 
 
     delete "/:id" $ do
