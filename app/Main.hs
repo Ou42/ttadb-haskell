@@ -128,7 +128,9 @@ server conn Options.Options { staticDir, reqLogger } = do
         Scotty.liftIO $ print "I'm processing a GET!" 
 
         todos <- Scotty.liftIO $
-            DB.query_ conn [sql|select id, todo, done_date from todos;|] :: Scotty.ActionM [ToDo]
+            DB.query_ conn [sql|select id, todo, done_date
+                                from todos
+                                where done_date is null;|] :: Scotty.ActionM [ToDo]
 
         Scotty.addHeader "cache-control" "no-store"
 
@@ -155,11 +157,6 @@ server conn Options.Options { staticDir, reqLogger } = do
                                                  ! Attributes.value (HTML.toValue id)
                                      HTML.button ! Attributes.type_ "submit" $ do
                                        "done"
-
-                                     HTML.label $ HTML.toMarkup $ case done_date of
-                                        Just datetime -> show datetime
-                                        Nothing       -> "not done"
-                                              -- Scotty.liftIO $ print "Checkbox clicked"
 
                 HTML.form ! Attributes.action "/" ! Attributes.method "post" $ do
                     HTML.input ! Attributes.type_ "text" ! Attributes.name "todo"
