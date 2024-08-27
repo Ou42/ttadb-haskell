@@ -18,15 +18,18 @@ import Database.SQLite.Simple qualified as DB
 import Data.Foldable (for_)
 import Data.Function ((&))
 import Data.String (fromString)
+import Data.ByteString.Lazy qualified as ByteString.Lazy
 import Data.Text.Internal.Builder qualified as Text
 import Data.Text.Lazy qualified as Text.Lazy
 import Data.Text.Lazy (Text)
 import Data.Text qualified as Text
+import Data.Text.Lazy.Encoding qualified as Text.Encoding
 import Data.Time.Clock (UTCTime)
 import Data.Typeable ( Typeable )
 import GHC.Generics (Generic)
 import GHC.Stack (HasCallStack)
 import Network.HTTP.Types.Status qualified as Status
+import Network.HTTP.Types.URI qualified as URI
 import Network.Wai.Handler.Warp qualified as Warp
 import Network.Wai.Middleware.RequestLogger qualified as MW
 import Network.Wai.Middleware.Static
@@ -214,7 +217,7 @@ server conn Options.Options { staticDir, reqLogger } = do
 
         Scotty.redirect $ case next of
             Nothing -> ("/" <> Text.Lazy.pack (show id))
-            Just p  -> p
+            Just p  -> Text.Encoding.decodeUtf8 $ ByteString.Lazy.fromStrict $ URI.urlDecode False p
 
 
     delete "/:id" $ do
