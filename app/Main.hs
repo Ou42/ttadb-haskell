@@ -74,6 +74,8 @@ settings port = Warp.defaultSettings
 
   )
 
+checkboxID id = "checkbox-" <> HTML.toValue id
+
 checkbox :: HTML.ToValue a => Bool -> a -> HTML.Html
 checkbox True id =
     HTML.input
@@ -191,6 +193,29 @@ server conn Options.Options { staticDir, reqLogger } = do
                                 HTML.button ! Attributes.value (HTML.toValue id)
                                             ! Attributes.onclick "deleteToDo(this)"
                                             $ "delete"
+
+                                HTML.form
+                                  ! Attributes.action "/resurrect"
+                                  ! Attributes.method "post" $ do
+                                     HTML.input  ! Attributes.type_ "hidden"
+                                                 ! Attributes.name "id"
+                                                 ! Attributes.value (HTML.toValue id)
+                                     HTML.button ! Attributes.type_ "submit" $ do
+                                       "done42"
+                                     HTML.input  ! Attributes.type_ "checkbox"
+                                                 ! Attributes.id (checkboxID id)
+                                                 ! Attributes.name (checkboxID id)
+                                                 -- ! Attributes.checked (HTML.toValue False)
+                                     HTML.label  ! Attributes.for "checkbox42"
+                                       $ case done_date of
+                                           Just datetime -> HTML.toMarkup
+                                                            $ "done on " <> show datetime
+                                           Nothing       -> "not done"
+
+--                                      HTML.label $ HTML.toMarkup $ case done_date of
+--                                         Just datetime -> show datetime
+--                                         Nothing       -> "not done"
+
 
                 HTML.form ! Attributes.action "/" ! Attributes.method "post" $ do
                     HTML.input ! Attributes.type_ "text" ! Attributes.name "todo"
