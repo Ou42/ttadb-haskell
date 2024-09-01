@@ -74,22 +74,23 @@ settings port = Warp.defaultSettings
 
   )
 
-checkboxID id = "checkbox-" <> HTML.toValue id
+doneCheckboxID :: HTML.ToValue a => a -> HTML.AttributeValue
+doneCheckboxID id = "doneCheckbox-" <> HTML.toValue id
 
-checkbox :: HTML.ToValue a => Bool -> a -> HTML.Html
-checkbox True id =
+doneCheckbox :: HTML.ToValue a => a -> Bool -> HTML.Html
+doneCheckbox id True =
     HTML.input
         ! Attributes.type_ "checkbox"
-        ! Attributes.id ("doneCkbx-" <> HTML.toValue id)
-        ! Attributes.name ("doneCkbx-" <> HTML.toValue id)
-        ! Attributes.disabled (HTML.toValue True)
+        ! Attributes.id (doneCheckboxID id)
+        ! Attributes.name "doneCheckbox" 
+        -- ! Attributes.disabled (HTML.toValue True)
         ! Attributes.checked "checked"
 
-checkbox False id =
+doneCheckbox id False =
     HTML.input
         ! Attributes.type_ "checkbox"
-        ! Attributes.id ("doneCkbx-" <> HTML.toValue id)
-        ! Attributes.name ("doneCkbx-" <> HTML.toValue id)
+        ! Attributes.id (doneCheckboxID id)
+        ! Attributes.name "doneCheckbox" 
 
 updateForm1 :: ToDo -> HTML.Html
 updateForm1 ToDo {id, todo, done_date} =
@@ -200,21 +201,16 @@ server conn Options.Options { staticDir, reqLogger } = do
                                      HTML.input  ! Attributes.type_ "hidden"
                                                  ! Attributes.name "id"
                                                  ! Attributes.value (HTML.toValue id)
-                                     HTML.button ! Attributes.type_ "submit" $ do
-                                       "done42"
-                                     HTML.input  ! Attributes.type_ "checkbox"
-                                                 ! Attributes.id (checkboxID id)
-                                                 ! Attributes.name (checkboxID id)
-                                                 -- ! Attributes.checked (HTML.toValue False)
-                                     HTML.label  ! Attributes.for "checkbox42"
+                                     HTML.button ! Attributes.style "background-color: green;"
+                                                 ! Attributes.type_ "submit" $ "toggle done"
+
+                                     doneCheckbox id (done_date /= Nothing)
+
+                                     HTML.label  ! Attributes.for (doneCheckboxID id)
                                        $ case done_date of
                                            Just datetime -> HTML.toMarkup
                                                             $ "done on " <> show datetime
                                            Nothing       -> "not done"
-
---                                      HTML.label $ HTML.toMarkup $ case done_date of
---                                         Just datetime -> show datetime
---                                         Nothing       -> "not done"
 
 
                 HTML.form ! Attributes.action "/" ! Attributes.method "post" $ do
