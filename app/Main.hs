@@ -180,7 +180,7 @@ server conn Options.Options { staticDir, reqLogger } = do
             headTag "<< Admin Console >>"
 
             HTML.body $ do
-                HTML.h1 "To-Do's"
+                HTML.h1 "Admin Console: To-Do's"
 
                 HTML.ul $ do
                     for_ todos $ \ToDo {id, todo, done_date} -> do
@@ -188,8 +188,10 @@ server conn Options.Options { staticDir, reqLogger } = do
                             HTML.div ! Attributes.class_ "flex-container" $ do
 
                                 HTML.a ! Attributes.name (HTML.toValue ("todo: " <> show id))
-                                        ! Attributes.href ("/" <> HTML.toValue id)
-                                        $ HTML.toMarkup todo
+                                       ! Attributes.href ("/" <> HTML.toValue id)
+                                       $ case done_date of
+                                           Just _  -> (HTML.s (HTML.toMarkup todo))
+                                           Nothing -> HTML.toMarkup todo
 
                                 HTML.button ! Attributes.value (HTML.toValue id)
                                             ! Attributes.onclick "deleteToDo(this)"
