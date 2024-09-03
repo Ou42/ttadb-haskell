@@ -5,9 +5,18 @@ body {
     background: black;
 }
 
-checkbox {
-  float: left;
-  width: 20px;
+.heading-nav {
+    display: flex;
+    align-items: center;
+}
+
+.heading-nav form {
+    margin-left: auto;
+}
+
+ul {
+	height: 65vH;
+	overflow-y: scroll;
 }
 
 li {

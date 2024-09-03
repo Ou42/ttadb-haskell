@@ -140,7 +140,13 @@ server conn Options.Options { staticDir, reqLogger } = do
             headTag "To-Do's"
 
             HTML.body $ do
-                HTML.h1 "To-Do's"
+                HTML.div ! Attributes.class_ "heading-nav" $ do
+
+                   HTML.h1 "To-Do's"
+
+                   HTML.form ! Attributes.action "/" ! Attributes.method "post" $ do
+                       HTML.input ! Attributes.type_ "text" ! Attributes.name "todo"
+                       HTML.input ! Attributes.type_ "submit" ! Attributes.value "new" -- calls post on "/"
 
                 HTML.ul $ do
                     for_ todos $ \ToDo {id, todo, done_date} -> do
@@ -159,10 +165,6 @@ server conn Options.Options { staticDir, reqLogger } = do
                                                  ! Attributes.value (HTML.toValue True)
                                      HTML.button ! Attributes.type_ "submit" $ do
                                        "done"
-
-                HTML.form ! Attributes.action "/" ! Attributes.method "post" $ do
-                    HTML.input ! Attributes.type_ "text" ! Attributes.name "todo"
-                    HTML.input ! Attributes.type_ "submit" -- calls post on "/"
 
     get "/admin" $ do
         todos <- Scotty.liftIO $
