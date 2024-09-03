@@ -40,7 +40,7 @@ import Options (Options(..))
 import Options qualified 
 import Prelude hiding (id)
 import Prelude qualified
-import Text.Blaze.Html5 ((!))
+import Text.Blaze.Html5 ((!), (!?))
 import Text.Blaze.Html5.Attributes qualified as Attributes
 import Text.Blaze.Html5 qualified as HTML
 import Text.Blaze.Html qualified 
@@ -78,19 +78,12 @@ doneCheckboxID :: HTML.ToValue a => a -> HTML.AttributeValue
 doneCheckboxID id = "doneCheckbox-" <> HTML.toValue id
 
 doneCheckbox :: HTML.ToValue a => a -> Bool -> HTML.Html
-doneCheckbox id True =
+doneCheckbox id val =
     HTML.input
         ! Attributes.type_ "checkbox"
         ! Attributes.id (doneCheckboxID id)
         ! Attributes.name "doneCheckbox" 
-        -- ! Attributes.disabled (HTML.toValue True)
-        ! Attributes.checked "checked"
-
-doneCheckbox id False =
-    HTML.input
-        ! Attributes.type_ "checkbox"
-        ! Attributes.id (doneCheckboxID id)
-        ! Attributes.name "doneCheckbox" 
+        !? (val, Attributes.checked mempty)
 
 updateForm1 :: ToDo -> HTML.Html
 updateForm1 ToDo {id, todo, done_date} =
