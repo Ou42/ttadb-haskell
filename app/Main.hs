@@ -11,13 +11,16 @@ module Main where
 
 import Control.Exception (Exception, SomeException)
 import Control.Monad.IO.Class ( MonadIO )
+import Crypto.Random.Types (MonadRandom(..))
 import Database.SQLite.Simple.FromRow (FromRow)
 import Database.SQLite.Simple (NamedParam(..))
 import Database.SQLite.Simple.QQ (sql)
 import Database.SQLite.Simple qualified as DB
+import Data.Aeson qualified as A
 import Data.Foldable (for_)
 import Data.Function ((&))
 import Data.String (fromString)
+import Data.ByteString.Char8 qualified as B8
 import Data.ByteString.Lazy qualified as ByteString.Lazy
 import Data.ByteString qualified as ByteString
 import Data.Text.Internal.Builder qualified as Text
@@ -30,6 +33,11 @@ import Data.Time.Clock (UTCTime)
 import Data.Typeable ( Typeable )
 import GHC.Generics (Generic)
 import GHC.Stack (HasCallStack)
+
+import Jose.Jwt
+import Jose.Jwk
+import Jose.Jwa (JwsAlg(EdDSA))
+
 import Network.HTTP.Types.Status qualified as Status
 import Network.HTTP.Types.URI qualified as URI
 import Network.Wai.Handler.Warp qualified as Warp
@@ -48,6 +56,75 @@ import Text.Blaze.Html.Renderer.Text (renderHtml)
 import Text.Blaze.Html.Renderer.Utf8 qualified as HTMLBS
 import UnliftIO.Exception qualified as Exception
 import Web.Scotty qualified as Scotty
+
+-- parseJwt :: Text -> Either JwtError Jwt
+-- parseJwt token = decodeCompact token
+
+-- validateJwt :: Jwt -> IO (Either Text Claims)
+--validateJwt jwt = do
+-- now <- getCurrentTime
+-- case jwtClaims jwt of
+--   Left err -> return $ Left err
+--   Right claims -> do
+--     let exp = jwtExpiration claims
+--     if isExpired exp now
+--       then return $ Left "Token has expired"
+--       else return $ Right claims
+
+jwtTest = do
+  -- Define the secret key
+  let secretKey = "my-secret-key"
+
+  -- Define the payload
+  let payload = A.object
+        [ ("iss", A.String "my-issuer")
+        , ("aud", A.String "my-audience")
+        , ("exp", A.Number 1643723900) -- Unix timestamp
+        ]
+
+  -- Convert the payload to a JSON string
+  let payloadJson = A.encode payload
+
+  -- Create the JWT
+--  let jwt = Jws.encodeSigned Jws.HS256 (B8.pack secretKey) payloadJson
+
+  -- Print the JWT
+--  case jwt of
+--    Left err -> print err
+--    Right jwt' -> B8.putStrLn jwt'
+
+
+  let jsonJwk = "{\"kty\":\"OKP\", \"crv\":\"Ed25519\", \"d\":\"nWGxne_9WmC6hEr0kuwsxERJxWl7MmkZcDusAxyuf2A\", \"x\":\"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo\"}" :: ByteString.ByteString
+  let Just jwk = A.decodeStrict jsonJwk :: Maybe Jwk
+  
+  print "jwt test"
+
+{- -- 4 attempt to fix:
+
+   Ambiguous type variable ‘m0’ arising from a use of ‘encode’
+      prevents the constraint ‘(crypton-1.0.0:Crypto.Random.Types.MonadRandom
+                                  m0)’ from being solved.
+      Relevant bindings include
+        encodedJwt :: m0 (Either JwtError Jwt) (bound at app/Main.hs:114:7)
+      Probable fix: use a type annotation to specify what ‘m0’ should be.
+      These potential instances exist:
+        instance crypton-1.0.0:Crypto.Random.Types.MonadRandom IO
+          -- Defined in ‘crypton-1.0.0:Crypto.Random.Types’
+        ...plus one instance involving out-of-scope types
+        (use -fprint-potential-instances to see them all)
+-}
+
+  -- let encodedJwt :: crypton-1.0.0-942f638b3f81515198aa7b3def2d6c065b5aefe9762fc512e1d3c46434654c8d:Crypto.Random.Types.MonadRandom m => m (Either JwtError Jwt)
+  -- let encodedJwt :: Crypto.Random.Types.MonadRandom m => m (Either JwtError Jwt)
+  -- let encodedJwt :: MonadRandom m => m (Either JwtError Jwt)
+  -- let encodedJwt :: ByteString.ByteString (Either JwtError Jwt)
+  -- let encodedJwt = (Jose.Jwt.encode [jwk] (JwsEncoding EdDSA) (Claims "public claims"))
+  ---
+  -- the following works!
+  encodedJwt :: Either JwtError Jwt <- (Jose.Jwt.encode [jwk] (JwsEncoding EdDSA) (Claims "public claims"))
+  print encodedJwt
+  -- should output: Right (Jwt {unJwt = "eyJhbGciOiJFZERTQSJ9.cHVibGljIGNsYWltcw.xYekeeGSQVpnQbl16lOCqFcmYsUj3goSTrZ4UBQqogjHLrvFUaVJ_StBqly-Tb-0xvayjUMM4INYBTwFMt_xAQ"})
+
 
 data ToDo = ToDo { id :: Int
                  , todo :: Text.Text

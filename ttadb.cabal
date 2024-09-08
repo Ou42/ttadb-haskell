@@ -30,21 +30,23 @@ executable ttadb
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
-    build-depends:    base ^>=4.16,
-                      bytestring ^>=0.11,
-                      scotty,
-                      aeson,
+    build-depends:    aeson,
                       blaze-html ^>= 0.9,
+                      base ^>=4.16,
+                      bytestring ^>=0.11,
+                      cryptonite ^>=0.30,
+                      http-types ^>= 0.12,
+                      jose-jwt ^>= 0.10.0,
+                      optparse-applicative ^>= 0.18,
+                      scotty,
                       sqlite-simple ^>= 0.4,
                       text ^>= 1.2,
-                      http-types ^>= 0.12,
-                      optparse-applicative ^>= 0.18,
+                      time,
                       unliftio,
-                      wai-extra,
                       wai,
+                      wai-extra,
                       wai-middleware-static ^>= 0.9,
-                      warp,
-                      time
+                      warp
 
     hs-source-dirs:   app
     default-language: Haskell2010
