@@ -11,7 +11,6 @@ module Main where
 
 import Control.Exception (Exception, SomeException)
 import Control.Monad.IO.Class ( MonadIO )
-import Crypto.Random.Types (MonadRandom(..))
 import Database.SQLite.Simple.FromRow (FromRow)
 import Database.SQLite.Simple (NamedParam(..))
 import Database.SQLite.Simple.QQ (sql)
@@ -33,11 +32,9 @@ import Data.Time.Clock (UTCTime)
 import Data.Typeable ( Typeable )
 import GHC.Generics (Generic)
 import GHC.Stack (HasCallStack)
-
 import Jose.Jwt
 import Jose.Jwk
 import Jose.Jwa (JwsAlg(EdDSA))
-
 import Network.HTTP.Types.Status qualified as Status
 import Network.HTTP.Types.URI qualified as URI
 import Network.Wai.Handler.Warp qualified as Warp
@@ -99,28 +96,6 @@ jwtTest = do
   
   print "jwt test"
 
-{- -- 4 attempt to fix:
-
-   Ambiguous type variable ‘m0’ arising from a use of ‘encode’
-      prevents the constraint ‘(crypton-1.0.0:Crypto.Random.Types.MonadRandom
-                                  m0)’ from being solved.
-      Relevant bindings include
-        encodedJwt :: m0 (Either JwtError Jwt) (bound at app/Main.hs:114:7)
-      Probable fix: use a type annotation to specify what ‘m0’ should be.
-      These potential instances exist:
-        instance crypton-1.0.0:Crypto.Random.Types.MonadRandom IO
-          -- Defined in ‘crypton-1.0.0:Crypto.Random.Types’
-        ...plus one instance involving out-of-scope types
-        (use -fprint-potential-instances to see them all)
--}
-
-  -- let encodedJwt :: crypton-1.0.0-942f638b3f81515198aa7b3def2d6c065b5aefe9762fc512e1d3c46434654c8d:Crypto.Random.Types.MonadRandom m => m (Either JwtError Jwt)
-  -- let encodedJwt :: Crypto.Random.Types.MonadRandom m => m (Either JwtError Jwt)
-  -- let encodedJwt :: MonadRandom m => m (Either JwtError Jwt)
-  -- let encodedJwt :: ByteString.ByteString (Either JwtError Jwt)
-  -- let encodedJwt = (Jose.Jwt.encode [jwk] (JwsEncoding EdDSA) (Claims "public claims"))
-  ---
-  -- the following works!
   encodedJwt :: Either JwtError Jwt <- (Jose.Jwt.encode [jwk] (JwsEncoding EdDSA) (Claims "public claims"))
   print encodedJwt
   -- should output: Right (Jwt {unJwt = "eyJhbGciOiJFZERTQSJ9.cHVibGljIGNsYWltcw.xYekeeGSQVpnQbl16lOCqFcmYsUj3goSTrZ4UBQqogjHLrvFUaVJ_StBqly-Tb-0xvayjUMM4INYBTwFMt_xAQ"})
@@ -197,10 +172,24 @@ main = do
 
         Scotty.scottyOpts opts (server conn argv)
 
+authMiddleware :: Wai.Middleware
+authMiddleware app req respond = do
+    if Wai.pathInfo req == ["login"]
+      then app req respond
+      else respond $ Wai.responseLBS Status.status302 [("Location", "/login")] ""
+
 server :: (HasCallStack) => DB.Connection -> Options.Options -> Scotty.ScottyM ()
 server conn Options.Options { staticDir, reqLogger } = do
     Scotty.middleware reqLogger
     Scotty.middleware $ staticPolicy (noDots >-> addBase staticDir)
+    Scotty.middleware $ authMiddleware
+
+    get "/login" $ do
+        Scotty.html $ renderHtml $ HTML.docTypeHtml $ do
+            headTag "<< Login Page >>"
+
+            HTML.body $ do
+                HTML.h1 "Login Page"
 
     get "/" $ do
 
