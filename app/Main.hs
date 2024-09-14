@@ -42,13 +42,13 @@ import Network.Wai.Middleware.RequestLogger qualified as MW
 import Network.Wai.Middleware.Static
 import Network.Wai qualified as Wai
 import Options (Options(..))
-import Options qualified 
+import Options qualified
 import Prelude hiding (id)
 import Prelude qualified
 import Text.Blaze.Html5 ((!), (!?))
 import Text.Blaze.Html5.Attributes qualified as Attributes
 import Text.Blaze.Html5 qualified as HTML
-import Text.Blaze.Html qualified 
+import Text.Blaze.Html qualified
 import Text.Blaze.Html.Renderer.Text (renderHtml)
 import Text.Blaze.Html.Renderer.Utf8 qualified as HTMLBS
 import UnliftIO.Exception qualified as Exception
@@ -93,7 +93,7 @@ jwtTest = do
 
   let jsonJwk = "{\"kty\":\"OKP\", \"crv\":\"Ed25519\", \"d\":\"nWGxne_9WmC6hEr0kuwsxERJxWl7MmkZcDusAxyuf2A\", \"x\":\"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo\"}" :: ByteString.ByteString
   let Just jwk = A.decodeStrict jsonJwk :: Maybe Jwk
-  
+
   print "jwt test"
 
   encodedJwt :: Either JwtError Jwt <- (Jose.Jwt.encode [jwk] (JwsEncoding EdDSA) (Claims "public claims"))
@@ -103,7 +103,7 @@ jwtTest = do
 
 data ToDo = ToDo { id :: Int
                  , todo :: Text.Text
-                 , done_date :: Maybe UTCTime 
+                 , done_date :: Maybe UTCTime
                  --      ... Nothing == "not done"
                  --      ... use FromField UTCTime
                  --      ... <https://hackage.haskell.org
@@ -134,7 +134,7 @@ doneCheckbox id val =
     HTML.input
         ! Attributes.type_ "checkbox"
         ! Attributes.id (doneCheckboxID id)
-        ! Attributes.name "doneCheckbox" 
+        ! Attributes.name "doneCheckbox"
         !? (val, Attributes.checked mempty)
 
 updateForm1 :: ToDo -> HTML.Html
@@ -173,10 +173,27 @@ main = do
         Scotty.scottyOpts opts (server conn argv)
 
 authMiddleware :: Wai.Middleware
-authMiddleware app req respond = do
-    if Wai.pathInfo req == ["login"]
-      then app req respond
-      else respond $ Wai.responseLBS Status.status302 [("Location", "/login")] ""
+authMiddleware app req respond
+    | Wai.pathInfo req == ["login"] = app req respond
+    | permitted "User"              = app req respond -- Try: "Admin", "User", or "Bob"
+    | not (permitted "User")        = respond
+                                      $ Wai.responseLBS Status.status403 [] oopsPage
+    | otherwise                     = respond
+                                      $ Wai.responseLBS Status.status302 [("Location", "/login")] ""
+    where
+      permitted :: String -> Bool
+      permitted role@"Admin" = True
+      permitted "User"       = Wai.pathInfo req == [] -- [] == root
+      permitted _            = False
+      oopsPage :: ByteString.Lazy.ByteString
+      -- oopsPage = "Oops! You are forbidden to access this page."
+      oopsPage = HTMLBS.renderHtml $ HTML.docTypeHtml $ do
+            headTag "<< Forbidden >>"
+
+            HTML.body $ do
+                HTML.h1 "Forbidden"
+                HTML.p  "Opps! You are not authorized to access this."
+                HTML.p  "Consider logging in."
 
 server :: (HasCallStack) => DB.Connection -> Options.Options -> Scotty.ScottyM ()
 server conn Options.Options { staticDir, reqLogger } = do
@@ -193,7 +210,7 @@ server conn Options.Options { staticDir, reqLogger } = do
 
     get "/" $ do
 
-        Scotty.liftIO $ print "I'm processing a GET!" 
+        Scotty.liftIO $ print "I'm processing a GET!"
 
         todos <- Scotty.liftIO $
             DB.query_ conn [sql|select id, todo, done_date
