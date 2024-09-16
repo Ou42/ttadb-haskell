@@ -208,6 +208,15 @@ server conn Options.Options { staticDir, reqLogger } = do
             HTML.body $ do
                 HTML.h1 "Login Page"
 
+                HTML.form ! Attributes.class_ "login-form"
+                          ! Attributes.action "/login"
+                          ! Attributes.method "post" $ do
+                    HTML.label ! Attributes.for "username" $ "username:"
+                    HTML.input ! Attributes.type_ "text" ! Attributes.name "username"
+                    HTML.label ! Attributes.for "password" $ "password:"
+                    HTML.input ! Attributes.type_ "password" ! Attributes.name "password"
+                    HTML.input ! Attributes.type_ "submit" ! Attributes.value "login"
+
     get "/" $ do
 
         Scotty.liftIO $ print "I'm processing a GET!"
