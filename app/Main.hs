@@ -175,25 +175,8 @@ main = do
 authMiddleware :: Wai.Middleware
 authMiddleware app req respond
     | Wai.pathInfo req == ["login"] = app req respond
-    | permitted "User"              = app req respond -- Try: "Admin", "User", or "Bob"
-    | not (permitted "User")        = respond
-                                      $ Wai.responseLBS Status.status403 [] oopsPage
     | otherwise                     = respond
                                       $ Wai.responseLBS Status.status302 [("Location", "/login")] ""
-    where
-      permitted :: String -> Bool
-      permitted role@"Admin" = True
-      permitted "User"       = Wai.pathInfo req == [] -- [] == root
-      permitted _            = False
-      oopsPage :: ByteString.Lazy.ByteString
-      -- oopsPage = "Oops! You are forbidden to access this page."
-      oopsPage = HTMLBS.renderHtml $ HTML.docTypeHtml $ do
-            headTag "<< Forbidden >>"
-
-            HTML.body $ do
-                HTML.h1 "Forbidden"
-                HTML.p  "Opps! You are not authorized to access this."
-                HTML.p  "Consider logging in."
 
 server :: (HasCallStack) => DB.Connection -> Options.Options -> Scotty.ScottyM ()
 server conn Options.Options { staticDir, reqLogger } = do
