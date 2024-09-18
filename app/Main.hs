@@ -11,6 +11,7 @@ module Main where
 
 import Control.Exception (Exception, SomeException)
 import Control.Monad.IO.Class ( MonadIO )
+import Crypto.KDF.BCrypt qualified as Crypton
 import Database.SQLite.Simple.FromRow (FromRow)
 import Database.SQLite.Simple (NamedParam(..))
 import Database.SQLite.Simple.QQ (sql)
@@ -113,9 +114,10 @@ data ToDo = ToDo { id :: Int
                  }
                  deriving (Generic, FromRow, Show)
 
-data User = User { user_id :: Int
-                 , name :: Text.Text
-                 , password_hash :: Text.Text
+data User = User { userId :: Int
+                 , userName :: Text.Text
+                 , userPassword_hash :: Text.Text
+                 -- , userPassword_hash :: ByteString.ByteString
                  }
                  deriving (Generic, FromRow, Show)
 
@@ -206,24 +208,53 @@ server conn Options.Options { staticDir, reqLogger } = do
                     HTML.input ! Attributes.type_ "password" ! Attributes.name "password"
                     HTML.input ! Attributes.type_ "submit" ! Attributes.value "login"
 
+
     post "/login" $ do
         name <- Scotty.formParam "username" :: Scotty.ActionM Text.Text
-        password <- Scotty.formParam "password" :: Scotty.ActionM Text.Text
+        input_pwd <- Scotty.formParam "password" :: Scotty.ActionM Text.Text
 
         let lowercase_name = Text.toLower name
 
-        [user] <- Scotty.liftIO $
-                    DB.queryNamed conn [sql|select user_id, name, password_hash
-                      from users where name=:lc_name ;|]
-                      [ ":lc_name" := (lowercase_name :: Text.Text) ] :: Scotty.ActionM [User]
+        users <- Scotty.liftIO $
+                   DB.queryNamed conn [sql|select user_id, name, password_hash
+                     from users where name=:lc_name ;|]
+                     [ ":lc_name" := (lowercase_name :: Text.Text) ] :: Scotty.ActionM [User]
 
-        Scotty.liftIO $ print name
-        Scotty.liftIO $ print password
+
         Scotty.liftIO $ print "User from db:"
-        Scotty.liftIO $ print user
+        Scotty.liftIO $ print users
 
+        if null users
+          then do -- don't forget the `do`!
+                Scotty.liftIO $ print "User *not* found!"
 
-        Scotty.redirect "/"
+                -- Scotty.status Status.status404
+                Scotty.status Status.status500
+
+                Scotty.html $ renderHtml $ HTML.docTypeHtml $ do
+                  headTag $ HTML.toMarkup (Text.pack "User *not* found!")
+
+                  HTML.body $ do
+                    HTML.h1 $ HTML.toMarkup (Text.pack "User *not* found!")
+ 
+          else do
+                let [user] = users
+                let hashed_pwd = Text.Encoding.encodeUtf8 $ userPassword_hash user
+                let bool2Text val = if val then "True" else "False"
+                let validPwd = Crypton.validatePassword (Text.Encoding.encodeUtf8 input_pwd) hashed_pwd
+                Scotty.html $ renderHtml $ HTML.docTypeHtml $ do
+                  headTag $ HTML.toMarkup (userName user)
+
+                  HTML.body $ do
+                    HTML.h1 $ HTML.toMarkup (Text.pack "Looking up user in db...")
+                    HTML.h2 $ HTML.toMarkup (Text.pack "User as input: ")
+                            <> HTML.toMarkup name
+                    HTML.h2 $ HTML.toMarkup (Text.pack "User found in db: ")
+                            <> (HTML.toMarkup . userName) user
+                    HTML.h2 $ (HTML.toMarkup . Text.pack)
+                                ("Input password is valid: " <> (bool2Text validPwd))
+
+        -- Scotty.redirect "/"
 
 
     get "/" $ do

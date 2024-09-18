@@ -34,6 +34,7 @@ executable ttadb
                       blaze-html ^>= 0.9,
                       base ^>=4.16,
                       bytestring ^>=0.11,
+                      crypton ^>=1.0.0,
                       http-types ^>= 0.12,
                       jose-jwt ^>= 0.10.0,
                       optparse-applicative ^>= 0.18,
