@@ -113,6 +113,12 @@ data ToDo = ToDo { id :: Int
                  }
                  deriving (Generic, FromRow, Show)
 
+data User = User { user_id :: Int
+                 , name :: Text.Text
+                 , password_hash :: Text.Text
+                 }
+                 deriving (Generic, FromRow, Show)
+
 settings :: Warp.Port -> Warp.Settings
 settings port = Warp.defaultSettings
   & Warp.setPort port
@@ -199,6 +205,26 @@ server conn Options.Options { staticDir, reqLogger } = do
                     HTML.label ! Attributes.for "password" $ "password:"
                     HTML.input ! Attributes.type_ "password" ! Attributes.name "password"
                     HTML.input ! Attributes.type_ "submit" ! Attributes.value "login"
+
+    post "/login" $ do
+        name <- Scotty.formParam "username" :: Scotty.ActionM Text.Text
+        password <- Scotty.formParam "password" :: Scotty.ActionM Text.Text
+
+        let lowercase_name = Text.toLower name
+
+        [user] <- Scotty.liftIO $
+                    DB.queryNamed conn [sql|select user_id, name, password_hash
+                      from users where name=:lc_name ;|]
+                      [ ":lc_name" := (lowercase_name :: Text.Text) ] :: Scotty.ActionM [User]
+
+        Scotty.liftIO $ print name
+        Scotty.liftIO $ print password
+        Scotty.liftIO $ print "User from db:"
+        Scotty.liftIO $ print user
+
+
+        Scotty.redirect "/"
+
 
     get "/" $ do
 
