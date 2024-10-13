@@ -19,6 +19,7 @@ import Database.SQLite.Simple qualified as DB
 import Data.Aeson qualified as A
 import Data.Foldable (for_)
 import Data.Function ((&))
+import Data.SecureMem qualified as SM
 import Data.String (fromString)
 import Data.ByteString.Char8 qualified as B8
 import Data.ByteString.Lazy qualified as ByteString.Lazy
@@ -39,6 +40,7 @@ import Jose.Jwa (JwsAlg(EdDSA))
 import Network.HTTP.Types.Status qualified as Status
 import Network.HTTP.Types.URI qualified as URI
 import Network.Wai.Handler.Warp qualified as Warp
+import Network.Wai.Middleware.HttpAuth qualified as HttpAuth
 import Network.Wai.Middleware.RequestLogger qualified as MW
 import Network.Wai.Middleware.Static
 import Network.Wai qualified as Wai
@@ -164,6 +166,42 @@ noFavIcon =
 data Hello = Hello
   deriving (Show, Exception)
 
+getAuthBasicHeader = do
+  basicAuthHeader <- Scotty.header "Authorization"
+  -- basicAuthHeader
+  Scotty.liftIO $ print basicAuthHeader
+--  case basicAuthHeader of
+--    Just basic -> basic
+--    _          -> "Invalid Login"
+
+-- testFunc :: Web.Scotty.Internal.Types.ActionT IO () -- per type hole
+-- ... when Just authValue -> Scotty.html $ "Auth ...
+-- testFunc :: HTML.Html
+{- testFunc = do
+  maybeAuthHeader <- Scotty.header "Authorization"
+  case maybeAuthHeader of
+    -- Just authValue -> HTML.p $ "Authorization header: " <> HTML.toHtml (show authValue)
+    Just authValue -> HTML.p "Authorization header: [placeholder]"
+    Nothing -> HTML.p "Authorization header missing"
+-}
+
+extractAuthHeader :: Scotty.ActionM Text
+extractAuthHeader = do
+    maybeAuthHeader <- Scotty.header "Authorization"
+    case maybeAuthHeader of
+        -- Just authValue -> return (Text.Lazy.toStrict authValue)  -- Convert to strict Text
+        Just authValue -> return (authValue)
+        Nothing -> return "Authorization header missing"    -- Default value
+
+-- Function to extract the Authorization header and return HTML
+extractAuthHeader2 :: Scotty.ActionM HTML.Html
+extractAuthHeader2 = do
+    maybeAuthHeader <- Scotty.header "Authorization"
+    return $ case maybeAuthHeader of
+        Just authValue -> HTML.p $ "Authorization header: " <> HTML.toHtml (Text.Lazy.toStrict authValue)
+        Nothing -> HTML.p "Authorization header missing"
+
+
 main :: IO ()
 main = do
     argv@Options.Options { port, db } <- Options.getOptions
@@ -186,11 +224,15 @@ authMiddleware app req respond
     | otherwise                     = respond
                                       $ Wai.responseLBS Status.status302 [("Location", "/login")] ""
 
+password :: SM.SecureMem
+password = SM.secureMemFromByteString "password" -- secret password
+
 server :: (HasCallStack) => DB.Connection -> Options.Options -> Scotty.ScottyM ()
 server conn Options.Options { staticDir, reqLogger } = do
     Scotty.middleware reqLogger
     Scotty.middleware $ staticPolicy (noDots >-> addBase staticDir)
-    Scotty.middleware $ authMiddleware
+    -- Scotty.middleware $ authMiddleware
+    Scotty.middleware $ HttpAuth.basicAuth (\u p -> return $ u == "user" && SM.secureMemFromByteString p == password) "Testing Basic Auth"
 
     get "/login" $ do
         Scotty.html $ renderHtml $ HTML.docTypeHtml $ do
@@ -260,6 +302,12 @@ server conn Options.Options { staticDir, reqLogger } = do
     get "/" $ do
 
         Scotty.liftIO $ print "I'm processing a GET!"
+        Scotty.liftIO $ print "---------------------"
+        headers <- Scotty.headers
+        Scotty.liftIO $ print headers
+        basicAuthHeader <- Scotty.header "Authorization"
+        Scotty.liftIO $ print basicAuthHeader
+        Scotty.liftIO $ print "---------------------"
 
         todos <- Scotty.liftIO $
             DB.query_ conn [sql|select id, todo, done_date
@@ -272,6 +320,10 @@ server conn Options.Options { staticDir, reqLogger } = do
             headTag "To-Do's"
 
             HTML.body $ do
+                authHeader <- extractAuthHeader2
+                -- HTML.div $ Scotty.liftIO $ authHeader
+                HTML.div $ Scotty.liftIO $ HTML.toMarkup authHeader
+
                 HTML.div ! Attributes.class_ "heading-nav" $ do
 
                    HTML.h1 "To-Do's"
