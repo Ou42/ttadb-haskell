@@ -11,7 +11,7 @@ module Main where
 
 import Control.Exception (Exception, SomeException)
 import Control.Monad.IO.Class ( MonadIO )
-import Crypto.KDF.BCrypt qualified as Crypton
+import Crypto.KDF.BCrypt qualified as BCrypt
 import Database.SQLite.Simple.FromRow (FromRow)
 import Database.SQLite.Simple (NamedParam(..))
 import Database.SQLite.Simple.QQ (sql)
@@ -184,7 +184,7 @@ getAuthBasicHeader = do
     Just authValue -> HTML.p "Authorization header: [placeholder]"
     Nothing -> HTML.p "Authorization header missing"
 -}
-
+{-
 extractAuthHeader :: Scotty.ActionM Text
 extractAuthHeader = do
     maybeAuthHeader <- Scotty.header "Authorization"
@@ -200,7 +200,7 @@ extractAuthHeader2 = do
     return $ case maybeAuthHeader of
         Just authValue -> HTML.p $ "Authorization header: " <> HTML.toHtml (Text.Lazy.toStrict authValue)
         Nothing -> HTML.p "Authorization header missing"
-
+-}
 
 main :: IO ()
 main = do
@@ -232,7 +232,15 @@ server conn Options.Options { staticDir, reqLogger } = do
     Scotty.middleware reqLogger
     Scotty.middleware $ staticPolicy (noDots >-> addBase staticDir)
     -- Scotty.middleware $ authMiddleware
-    Scotty.middleware $ HttpAuth.basicAuth (\u p -> return $ u == "user" && SM.secureMemFromByteString p == password) "Testing Basic Auth"
+    Scotty.middleware $ flip HttpAuth.basicAuth "Default" $ \u p -> do
+      users <- DB.queryNamed conn [sql|select user_id, name, password_hash
+                     from users where name=:username ;|]
+                     [ ":username" := Text.Encoding.decodeUtf8 u ] :: IO [User]
+
+      case users of
+        [] -> return False
+        (User {userPassword_hash}:_) -> 
+          return $ BCrypt.validatePassword p (Text.Encoding.encodeUtf8 userPassword_hash)
 
     get "/login" $ do
         Scotty.html $ renderHtml $ HTML.docTypeHtml $ do
@@ -266,6 +274,7 @@ server conn Options.Options { staticDir, reqLogger } = do
         Scotty.liftIO $ print "User from db:"
         Scotty.liftIO $ print users
 
+{-
         if null users
           then do -- don't forget the `do`!
                 Scotty.liftIO $ print "User *not* found!"
@@ -281,9 +290,9 @@ server conn Options.Options { staticDir, reqLogger } = do
  
           else do
                 let [user] = users
-                let hashed_pwd = Text.Encoding.encodeUtf8 $ userPassword_hash user
+                let hashed_pwd = text.encoding.encodeutf8 $ userpassword_hash user
                 let bool2Text val = if val then "True" else "False"
-                let validPwd = Crypton.validatePassword (Text.Encoding.encodeUtf8 input_pwd) hashed_pwd
+                let validPwd = BCrypt.validatePassword (Text.Encoding.encodeUtf8 input_pwd) hashed_pwd
                 Scotty.html $ renderHtml $ HTML.docTypeHtml $ do
                   headTag $ HTML.toMarkup (userName user)
 
@@ -295,7 +304,7 @@ server conn Options.Options { staticDir, reqLogger } = do
                             <> (HTML.toMarkup . userName) user
                     HTML.h2 $ (HTML.toMarkup . Text.pack)
                                 ("Input password is valid: " <> (bool2Text validPwd))
-
+-}
         -- Scotty.redirect "/"
 
 
@@ -320,9 +329,9 @@ server conn Options.Options { staticDir, reqLogger } = do
             headTag "To-Do's"
 
             HTML.body $ do
-                authHeader <- extractAuthHeader2
+                -- authHeader <- extractAuthHeader2
                 -- HTML.div $ Scotty.liftIO $ authHeader
-                HTML.div $ Scotty.liftIO $ HTML.toMarkup authHeader
+                -- HTML.div $ Scotty.liftIO $ HTML.toMarkup authHeader
 
                 HTML.div ! Attributes.class_ "heading-nav" $ do
 
