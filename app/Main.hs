@@ -19,7 +19,6 @@ import Database.SQLite.Simple qualified as DB
 import Data.Aeson qualified as A
 import Data.Foldable (for_)
 import Data.Function ((&))
-import Data.SecureMem qualified as SM
 import Data.String (fromString)
 import Data.ByteString.Char8 qualified as B8
 import Data.ByteString.Lazy qualified as ByteString.Lazy
@@ -34,9 +33,6 @@ import Data.Time.Clock (UTCTime)
 import Data.Typeable ( Typeable )
 import GHC.Generics (Generic)
 import GHC.Stack (HasCallStack)
-import Jose.Jwt
-import Jose.Jwk
-import Jose.Jwa (JwsAlg(EdDSA))
 import Network.HTTP.Types.Status qualified as Status
 import Network.HTTP.Types.URI qualified as URI
 import Network.Wai.Handler.Warp qualified as Warp
@@ -47,7 +43,6 @@ import Network.Wai qualified as Wai
 import Options (Options(..))
 import Options qualified
 import Prelude hiding (id)
-import Prelude qualified
 import Text.Blaze.Html5 ((!), (!?))
 import Text.Blaze.Html5.Attributes qualified as Attributes
 import Text.Blaze.Html5 qualified as HTML
@@ -56,53 +51,6 @@ import Text.Blaze.Html.Renderer.Text (renderHtml)
 import Text.Blaze.Html.Renderer.Utf8 qualified as HTMLBS
 import UnliftIO.Exception qualified as Exception
 import Web.Scotty qualified as Scotty
-
--- parseJwt :: Text -> Either JwtError Jwt
--- parseJwt token = decodeCompact token
-
--- validateJwt :: Jwt -> IO (Either Text Claims)
---validateJwt jwt = do
--- now <- getCurrentTime
--- case jwtClaims jwt of
---   Left err -> return $ Left err
---   Right claims -> do
---     let exp = jwtExpiration claims
---     if isExpired exp now
---       then return $ Left "Token has expired"
---       else return $ Right claims
-
-jwtTest = do
-  -- Define the secret key
-  let secretKey = "my-secret-key"
-
-  -- Define the payload
-  let payload = A.object
-        [ ("iss", A.String "my-issuer")
-        , ("aud", A.String "my-audience")
-        , ("exp", A.Number 1643723900) -- Unix timestamp
-        ]
-
-  -- Convert the payload to a JSON string
-  let payloadJson = A.encode payload
-
-  -- Create the JWT
---  let jwt = Jws.encodeSigned Jws.HS256 (B8.pack secretKey) payloadJson
-
-  -- Print the JWT
---  case jwt of
---    Left err -> print err
---    Right jwt' -> B8.putStrLn jwt'
-
-
-  let jsonJwk = "{\"kty\":\"OKP\", \"crv\":\"Ed25519\", \"d\":\"nWGxne_9WmC6hEr0kuwsxERJxWl7MmkZcDusAxyuf2A\", \"x\":\"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo\"}" :: ByteString.ByteString
-  let Just jwk = A.decodeStrict jsonJwk :: Maybe Jwk
-
-  print "jwt test"
-
-  encodedJwt :: Either JwtError Jwt <- (Jose.Jwt.encode [jwk] (JwsEncoding EdDSA) (Claims "public claims"))
-  print encodedJwt
-  -- should output: Right (Jwt {unJwt = "eyJhbGciOiJFZERTQSJ9.cHVibGljIGNsYWltcw.xYekeeGSQVpnQbl16lOCqFcmYsUj3goSTrZ4UBQqogjHLrvFUaVJ_StBqly-Tb-0xvayjUMM4INYBTwFMt_xAQ"})
-
 
 data ToDo = ToDo { id :: Int
                  , todo :: Text.Text
@@ -163,45 +111,6 @@ noFavIcon =
     HTML.link ! Attributes.rel "icon"
               ! Attributes.href "data:,"
 
-data Hello = Hello
-  deriving (Show, Exception)
-
-getAuthBasicHeader = do
-  basicAuthHeader <- Scotty.header "Authorization"
-  -- basicAuthHeader
-  Scotty.liftIO $ print basicAuthHeader
---  case basicAuthHeader of
---    Just basic -> basic
---    _          -> "Invalid Login"
-
--- testFunc :: Web.Scotty.Internal.Types.ActionT IO () -- per type hole
--- ... when Just authValue -> Scotty.html $ "Auth ...
--- testFunc :: HTML.Html
-{- testFunc = do
-  maybeAuthHeader <- Scotty.header "Authorization"
-  case maybeAuthHeader of
-    -- Just authValue -> HTML.p $ "Authorization header: " <> HTML.toHtml (show authValue)
-    Just authValue -> HTML.p "Authorization header: [placeholder]"
-    Nothing -> HTML.p "Authorization header missing"
--}
-{-
-extractAuthHeader :: Scotty.ActionM Text
-extractAuthHeader = do
-    maybeAuthHeader <- Scotty.header "Authorization"
-    case maybeAuthHeader of
-        -- Just authValue -> return (Text.Lazy.toStrict authValue)  -- Convert to strict Text
-        Just authValue -> return (authValue)
-        Nothing -> return "Authorization header missing"    -- Default value
-
--- Function to extract the Authorization header and return HTML
-extractAuthHeader2 :: Scotty.ActionM HTML.Html
-extractAuthHeader2 = do
-    maybeAuthHeader <- Scotty.header "Authorization"
-    return $ case maybeAuthHeader of
-        Just authValue -> HTML.p $ "Authorization header: " <> HTML.toHtml (Text.Lazy.toStrict authValue)
-        Nothing -> HTML.p "Authorization header missing"
--}
-
 main :: IO ()
 main = do
     argv@Options.Options { port, db } <- Options.getOptions
@@ -218,20 +127,10 @@ main = do
 
         Scotty.scottyOpts opts (server conn argv)
 
-authMiddleware :: Wai.Middleware
-authMiddleware app req respond
-    | Wai.pathInfo req == ["login"] = app req respond
-    | otherwise                     = respond
-                                      $ Wai.responseLBS Status.status302 [("Location", "/login")] ""
-
-password :: SM.SecureMem
-password = SM.secureMemFromByteString "password" -- secret password
-
 server :: (HasCallStack) => DB.Connection -> Options.Options -> Scotty.ScottyM ()
 server conn Options.Options { staticDir, reqLogger } = do
     Scotty.middleware reqLogger
     Scotty.middleware $ staticPolicy (noDots >-> addBase staticDir)
-    -- Scotty.middleware $ authMiddleware
     Scotty.middleware $ flip HttpAuth.basicAuth "Default" $ \u p -> do
       users <- DB.queryNamed conn [sql|select user_id, name, password_hash
                      from users where name=:username ;|]
@@ -239,84 +138,10 @@ server conn Options.Options { staticDir, reqLogger } = do
 
       case users of
         [] -> return False
-        (User {userPassword_hash}:_) -> 
+        (User {userPassword_hash}:_) ->
           return $ BCrypt.validatePassword p (Text.Encoding.encodeUtf8 userPassword_hash)
 
-    get "/login" $ do
-        Scotty.html $ renderHtml $ HTML.docTypeHtml $ do
-            headTag "<< Login Page >>"
-
-            HTML.body $ do
-                HTML.h1 "Login Page"
-
-                HTML.form ! Attributes.class_ "login-form"
-                          ! Attributes.action "/login"
-                          ! Attributes.method "post" $ do
-                    HTML.label ! Attributes.for "username" $ "username:"
-                    HTML.input ! Attributes.type_ "text" ! Attributes.name "username"
-                    HTML.label ! Attributes.for "password" $ "password:"
-                    HTML.input ! Attributes.type_ "password" ! Attributes.name "password"
-                    HTML.input ! Attributes.type_ "submit" ! Attributes.value "login"
-
-
-    post "/login" $ do
-        name <- Scotty.formParam "username" :: Scotty.ActionM Text.Text
-        input_pwd <- Scotty.formParam "password" :: Scotty.ActionM Text.Text
-
-        let lowercase_name = Text.toLower name
-
-        users <- Scotty.liftIO $
-                   DB.queryNamed conn [sql|select user_id, name, password_hash
-                     from users where name=:lc_name ;|]
-                     [ ":lc_name" := (lowercase_name :: Text.Text) ] :: Scotty.ActionM [User]
-
-
-        Scotty.liftIO $ print "User from db:"
-        Scotty.liftIO $ print users
-
-{-
-        if null users
-          then do -- don't forget the `do`!
-                Scotty.liftIO $ print "User *not* found!"
-
-                -- Scotty.status Status.status404
-                Scotty.status Status.status500
-
-                Scotty.html $ renderHtml $ HTML.docTypeHtml $ do
-                  headTag $ HTML.toMarkup (Text.pack "User *not* found!")
-
-                  HTML.body $ do
-                    HTML.h1 $ HTML.toMarkup (Text.pack "User *not* found!")
- 
-          else do
-                let [user] = users
-                let hashed_pwd = text.encoding.encodeutf8 $ userpassword_hash user
-                let bool2Text val = if val then "True" else "False"
-                let validPwd = BCrypt.validatePassword (Text.Encoding.encodeUtf8 input_pwd) hashed_pwd
-                Scotty.html $ renderHtml $ HTML.docTypeHtml $ do
-                  headTag $ HTML.toMarkup (userName user)
-
-                  HTML.body $ do
-                    HTML.h1 $ HTML.toMarkup (Text.pack "Looking up user in db...")
-                    HTML.h2 $ HTML.toMarkup (Text.pack "User as input: ")
-                            <> HTML.toMarkup name
-                    HTML.h2 $ HTML.toMarkup (Text.pack "User found in db: ")
-                            <> (HTML.toMarkup . userName) user
-                    HTML.h2 $ (HTML.toMarkup . Text.pack)
-                                ("Input password is valid: " <> (bool2Text validPwd))
--}
-        -- Scotty.redirect "/"
-
-
     get "/" $ do
-
-        Scotty.liftIO $ print "I'm processing a GET!"
-        Scotty.liftIO $ print "---------------------"
-        headers <- Scotty.headers
-        Scotty.liftIO $ print headers
-        basicAuthHeader <- Scotty.header "Authorization"
-        Scotty.liftIO $ print basicAuthHeader
-        Scotty.liftIO $ print "---------------------"
 
         todos <- Scotty.liftIO $
             DB.query_ conn [sql|select id, todo, done_date
@@ -329,10 +154,6 @@ server conn Options.Options { staticDir, reqLogger } = do
             headTag "To-Do's"
 
             HTML.body $ do
-                -- authHeader <- extractAuthHeader2
-                -- HTML.div $ Scotty.liftIO $ authHeader
-                -- HTML.div $ Scotty.liftIO $ HTML.toMarkup authHeader
-
                 HTML.div ! Attributes.class_ "heading-nav" $ do
 
                    HTML.h1 "To-Do's"
