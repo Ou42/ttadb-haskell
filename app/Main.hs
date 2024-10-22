@@ -154,6 +154,7 @@ server conn Options.Options { staticDir, reqLogger } = do
             headTag "To-Do's"
 
             HTML.body $ do
+
                 HTML.div ! Attributes.class_ "heading-nav" $ do
 
                    HTML.h1 "To-Do's"
@@ -161,6 +162,8 @@ server conn Options.Options { staticDir, reqLogger } = do
                    HTML.form ! Attributes.action "/" ! Attributes.method "post" $ do
                        HTML.input ! Attributes.type_ "text" ! Attributes.name "todo"
                        HTML.input ! Attributes.type_ "submit" ! Attributes.value "new" -- calls post on "/"
+                   HTML.a ! Attributes.style "text-decoration: underline; color: cornflowerblue;"
+                          ! Attributes.href "/logout" $ "logout"
 
                 HTML.ul $ do
                     for_ todos $ \ToDo {id, todo, done_date} -> do
@@ -258,6 +261,10 @@ server conn Options.Options { staticDir, reqLogger } = do
             Nothing -> ("/" <> Text.Lazy.pack (show id))
             Just p  -> Text.Lazy.Encoding.decodeUtf8 $ ByteString.Lazy.fromStrict $ URI.urlDecode False p
 
+    get "/logout" $ do
+        Scotty.status Status.status401
+
+        Scotty.setHeader "WWW-Authenticate" "Basic realm=\"Default\""
 
     delete "/:id" $ do
         id <- Scotty.captureParam "id"
