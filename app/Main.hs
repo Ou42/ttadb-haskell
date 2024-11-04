@@ -111,6 +111,7 @@ noFavIcon =
     HTML.link ! Attributes.rel "icon"
               ! Attributes.href "data:,"
 
+
 main :: IO ()
 main = do
     argv@Options.Options { port, db } <- Options.getOptions
@@ -127,11 +128,15 @@ main = do
 
         Scotty.scottyOpts opts (server conn argv)
 
+authSettings :: HttpAuth.AuthSettings
+authSettings = "Default"
+  { HttpAuth.authIsProtected = \req -> return (Wai.pathInfo req /= ["signup"]) }
+
 server :: (HasCallStack) => DB.Connection -> Options.Options -> Scotty.ScottyM ()
 server conn Options.Options { staticDir, reqLogger } = do
     Scotty.middleware reqLogger
     Scotty.middleware $ staticPolicy (noDots >-> addBase staticDir)
-    Scotty.middleware $ flip HttpAuth.basicAuth "Default" $ \u p -> do
+    Scotty.middleware $ flip HttpAuth.basicAuth authSettings $ \u p -> do
       users <- DB.queryNamed conn [sql|select user_id, name, password_hash
                      from users where name=:username ;|]
                      [ ":username" := Text.Encoding.decodeUtf8 u ] :: IO [User]
@@ -265,6 +270,35 @@ server conn Options.Options { staticDir, reqLogger } = do
         Scotty.status Status.status401
 
         Scotty.setHeader "WWW-Authenticate" "Basic realm=\"Default\""
+
+    post "/signup" $ do
+        username :: Text.Text <- Scotty.formParam "username"
+        password :: ByteString.ByteString <- Scotty.formParam "password"
+        hashed_password <- Scotty.liftIO $ BCrypt.hashPassword 12 password 
+        Scotty.liftIO $
+            DB.executeNamed conn [sql|insert into users (name, password_hash)
+                                      values (:username, :hashed_password);|]
+                [ ":username" := username 
+                , ":hashed_password" := Text.Encoding.decodeUtf8 hashed_password
+                ]
+
+        Scotty.redirect "/"
+
+    get "/signup" $ do
+        Scotty.html $ renderHtml $ HTML.docTypeHtml $ do
+            headTag "<< Signup Page >>"
+ 
+            HTML.body $ do
+                HTML.h1 "Signup Page"
+ 
+                HTML.form ! Attributes.class_ "signup-form"
+                          ! Attributes.action "/signup"
+                          ! Attributes.method "post" $ do
+                    HTML.label ! Attributes.for "username" $ "username:"
+                    HTML.input ! Attributes.type_ "text" ! Attributes.name "username"
+                    HTML.label ! Attributes.for "password" $ "password:"
+                    HTML.input ! Attributes.type_ "password" ! Attributes.name "password"
+                    HTML.input ! Attributes.type_ "submit" ! Attributes.value "signup"
 
     delete "/:id" $ do
         id <- Scotty.captureParam "id"
