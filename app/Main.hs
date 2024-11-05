@@ -172,21 +172,21 @@ server conn Options.Options { staticDir, reqLogger } = do
 
                 HTML.ul $ do
                     for_ todos $ \ToDo {id, todo, done_date} -> do
-                        HTML.li ! Attributes.id ("todo-" <> HTML.toValue id) $ do
-                            HTML.div ! Attributes.class_ "flex-container" $ do
+                        HTML.li ! Attributes.id ("todo-" <> HTML.toValue id)
+                                ! Attributes.class_ "flex-container" $ do
 
-                                HTML.a ! Attributes.name (HTML.toValue ("todo: " <> show id))
-                                       ! Attributes.href ("/" <> HTML.toValue id)
-                                       $ HTML.toMarkup todo
+                                    HTML.a ! Attributes.name (HTML.toValue ("todo: " <> show id))
+                                           ! Attributes.href ("/" <> HTML.toValue id)
+                                           $ HTML.toMarkup todo
 
-                                HTML.form
-                                  ! Attributes.action ("/" <> HTML.toValue id <> "?next=%2F")
-                                  ! Attributes.method "post" $ do
-                                     HTML.input  ! Attributes.type_ "hidden"
-                                                 ! Attributes.name "done"
-                                                 ! Attributes.value (HTML.toValue True)
-                                     HTML.button ! Attributes.type_ "submit" $ do
-                                       "done"
+                                    HTML.form
+                                      ! Attributes.action ("/" <> HTML.toValue id <> "?next=%2Fadmin")
+                                      ! Attributes.method "post" $ do
+                                         HTML.input  ! Attributes.type_ "hidden"
+                                                     ! Attributes.name "done"
+                                                     ! Attributes.value (HTML.toValue True)
+                                         HTML.button ! Attributes.type_ "submit" $ do
+                                           "done"
 
     get "/admin" $ do
         todos <- Scotty.liftIO $
@@ -201,35 +201,31 @@ server conn Options.Options { staticDir, reqLogger } = do
 
                 HTML.ul $ do
                     for_ todos $ \ToDo {id, todo, done_date} -> do
-                        HTML.li ! Attributes.id ("todo-" <> HTML.toValue id) $ do
-                            HTML.div ! Attributes.class_ "flex-container" $ do
+                        HTML.li ! Attributes.id ("todo-" <> HTML.toValue id)
+                                ! Attributes.class_ "flex-container" $ do
 
-                                HTML.a ! Attributes.name (HTML.toValue ("todo: " <> show id))
-                                       ! Attributes.href ("/" <> HTML.toValue id)
-                                       $ case done_date of
-                                           Just _  -> (HTML.s (HTML.toMarkup todo))
-                                           Nothing -> HTML.toMarkup todo
+                                   HTML.a ! Attributes.name (HTML.toValue ("todo: " <> show id))
+                                          ! Attributes.href ("/" <> HTML.toValue id)
+                                          $ case done_date of
+                                              Just _  -> (HTML.s (HTML.toMarkup todo))
+                                              Nothing -> HTML.toMarkup todo
 
-                                HTML.button ! Attributes.value (HTML.toValue id)
-                                            ! Attributes.onclick "deleteToDo(this)"
-                                            $ "delete"
+                                   HTML.button ! Attributes.value (HTML.toValue id)
+                                               ! Attributes.onclick "deleteToDo(this)"
+                                               $ "delete"
 
-                                HTML.form
-                                  ! Attributes.action "/resurrect"
-                                  ! Attributes.method "post" $ do
-                                     HTML.input  ! Attributes.type_ "hidden"
-                                                 ! Attributes.name "id"
-                                                 ! Attributes.value (HTML.toValue id)
-                                     HTML.button ! Attributes.style "background-color: green;"
-                                                 ! Attributes.type_ "submit" $ "toggle done"
+                                   HTML.form
+                                     ! Attributes.action ("/" <> HTML.toValue id <> "?next=%2F")
+                                     ! Attributes.method "post" $ do
+                                        HTML.input  ! Attributes.type_ "hidden"
+                                                    ! Attributes.name "done"
+                                                    ! Attributes.value (HTML.toValue False)
+                                        HTML.button ! Attributes.type_ "submit" $ do
+                                          "resurrect"
 
-                                     doneCheckbox id (done_date /= Nothing)
-
-                                     HTML.label  ! Attributes.for (doneCheckboxID id)
-                                       $ case done_date of
-                                           Just datetime -> HTML.toMarkup
-                                                            $ "done on " <> show datetime
-                                           Nothing       -> "not done"
+                                   HTML.p $ case done_date of
+                                     Just datetime -> HTML.toMarkup $ "done on " <> show datetime
+                                     Nothing       -> "not done"
 
 
                 HTML.form ! Attributes.action "/" ! Attributes.method "post" $ do

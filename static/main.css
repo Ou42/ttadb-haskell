@@ -32,7 +32,6 @@ body {
   width: 100%;
 }
 
-
 .login-form label {
   display: block;
   margin: 20px 0 10px;
@@ -68,8 +67,8 @@ a {
     flex: 0 0 33%;
 }
 
-.flex-container button {
-    align-self: flex-start;
+li.flex-container {
+    align-items: center;
 }
 
 .flex-container button {
