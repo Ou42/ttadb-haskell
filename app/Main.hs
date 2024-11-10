@@ -11,13 +11,16 @@ module Main where
 
 import Control.Exception (Exception, SomeException)
 import Control.Monad.IO.Class ( MonadIO )
+import Crypto.KDF.BCrypt qualified as BCrypt
 import Database.SQLite.Simple.FromRow (FromRow)
 import Database.SQLite.Simple (NamedParam(..))
 import Database.SQLite.Simple.QQ (sql)
 import Database.SQLite.Simple qualified as DB
+import Data.Aeson qualified as A
 import Data.Foldable (for_)
 import Data.Function ((&))
 import Data.String (fromString)
+import Data.ByteString.Char8 qualified as B8
 import Data.ByteString.Lazy qualified as ByteString.Lazy
 import Data.ByteString qualified as ByteString
 import Data.Text.Internal.Builder qualified as Text
@@ -33,17 +36,17 @@ import GHC.Stack (HasCallStack)
 import Network.HTTP.Types.Status qualified as Status
 import Network.HTTP.Types.URI qualified as URI
 import Network.Wai.Handler.Warp qualified as Warp
+import Network.Wai.Middleware.HttpAuth qualified as HttpAuth
 import Network.Wai.Middleware.RequestLogger qualified as MW
 import Network.Wai.Middleware.Static
 import Network.Wai qualified as Wai
 import Options (Options(..))
-import Options qualified 
+import Options qualified
 import Prelude hiding (id)
-import Prelude qualified
 import Text.Blaze.Html5 ((!), (!?))
 import Text.Blaze.Html5.Attributes qualified as Attributes
 import Text.Blaze.Html5 qualified as HTML
-import Text.Blaze.Html qualified 
+import Text.Blaze.Html qualified
 import Text.Blaze.Html.Renderer.Text (renderHtml)
 import Text.Blaze.Html.Renderer.Utf8 qualified as HTMLBS
 import UnliftIO.Exception qualified as Exception
@@ -51,13 +54,20 @@ import Web.Scotty qualified as Scotty
 
 data ToDo = ToDo { id :: Int
                  , todo :: Text.Text
-                 , done_date :: Maybe UTCTime 
+                 , done_date :: Maybe UTCTime
                  --      ... Nothing == "not done"
                  --      ... use FromField UTCTime
                  --      ... <https://hackage.haskell.org
                  --      ...               /package/sqlite-simple-0.4.18.2
                  --      ...               /docs/Database-SQLite-Simple-FromField.html
                  --      ...               #t:FromField>
+                 }
+                 deriving (Generic, FromRow, Show)
+
+data User = User { userId :: Int
+                 , userName :: Text.Text
+                 , userPassword_hash :: Text.Text
+                 -- , userPassword_hash :: ByteString.ByteString
                  }
                  deriving (Generic, FromRow, Show)
 
@@ -82,7 +92,7 @@ doneCheckbox id val =
     HTML.input
         ! Attributes.type_ "checkbox"
         ! Attributes.id (doneCheckboxID id)
-        ! Attributes.name "doneCheckbox" 
+        ! Attributes.name "doneCheckbox"
         !? (val, Attributes.checked mempty)
 
 updateForm1 :: ToDo -> HTML.Html
@@ -101,8 +111,6 @@ noFavIcon =
     HTML.link ! Attributes.rel "icon"
               ! Attributes.href "data:,"
 
-data Hello = Hello
-  deriving (Show, Exception)
 
 main :: IO ()
 main = do
@@ -120,14 +128,25 @@ main = do
 
         Scotty.scottyOpts opts (server conn argv)
 
+authSettings :: HttpAuth.AuthSettings
+authSettings = "Default"
+  { HttpAuth.authIsProtected = \req -> return (Wai.pathInfo req /= ["signup"]) }
+
 server :: (HasCallStack) => DB.Connection -> Options.Options -> Scotty.ScottyM ()
 server conn Options.Options { staticDir, reqLogger } = do
     Scotty.middleware reqLogger
     Scotty.middleware $ staticPolicy (noDots >-> addBase staticDir)
+    Scotty.middleware $ flip HttpAuth.basicAuth authSettings $ \u p -> do
+      users <- DB.queryNamed conn [sql|select user_id, name, password_hash
+                     from users where name=:username ;|]
+                     [ ":username" := Text.Encoding.decodeUtf8 u ] :: IO [User]
+
+      case users of
+        [] -> return False
+        (User {userPassword_hash}:_) ->
+          return $ BCrypt.validatePassword p (Text.Encoding.encodeUtf8 userPassword_hash)
 
     get "/" $ do
-
-        Scotty.liftIO $ print "I'm processing a GET!" 
 
         todos <- Scotty.liftIO $
             DB.query_ conn [sql|select id, todo, done_date
@@ -140,6 +159,7 @@ server conn Options.Options { staticDir, reqLogger } = do
             headTag "To-Do's"
 
             HTML.body $ do
+
                 HTML.div ! Attributes.class_ "heading-nav" $ do
 
                    HTML.h1 "To-Do's"
@@ -147,24 +167,26 @@ server conn Options.Options { staticDir, reqLogger } = do
                    HTML.form ! Attributes.action "/" ! Attributes.method "post" $ do
                        HTML.input ! Attributes.type_ "text" ! Attributes.name "todo"
                        HTML.input ! Attributes.type_ "submit" ! Attributes.value "new" -- calls post on "/"
+                   HTML.a ! Attributes.style "text-decoration: underline; color: cornflowerblue;"
+                          ! Attributes.href "/logout" $ "logout"
 
                 HTML.ul $ do
                     for_ todos $ \ToDo {id, todo, done_date} -> do
-                        HTML.li ! Attributes.id ("todo-" <> HTML.toValue id) $ do
-                            HTML.div ! Attributes.class_ "flex-container" $ do
+                        HTML.li ! Attributes.id ("todo-" <> HTML.toValue id)
+                                ! Attributes.class_ "flex-container" $ do
 
-                                HTML.a ! Attributes.name (HTML.toValue ("todo: " <> show id))
-                                       ! Attributes.href ("/" <> HTML.toValue id)
-                                       $ HTML.toMarkup todo
+                                    HTML.a ! Attributes.name (HTML.toValue ("todo: " <> show id))
+                                           ! Attributes.href ("/" <> HTML.toValue id)
+                                           $ HTML.toMarkup todo
 
-                                HTML.form
-                                  ! Attributes.action ("/" <> HTML.toValue id <> "?next=%2F")
-                                  ! Attributes.method "post" $ do
-                                     HTML.input  ! Attributes.type_ "hidden"
-                                                 ! Attributes.name "done"
-                                                 ! Attributes.value (HTML.toValue True)
-                                     HTML.button ! Attributes.type_ "submit" $ do
-                                       "done"
+                                    HTML.form
+                                      ! Attributes.action ("/" <> HTML.toValue id <> "?next=%2Fadmin")
+                                      ! Attributes.method "post" $ do
+                                         HTML.input  ! Attributes.type_ "hidden"
+                                                     ! Attributes.name "done"
+                                                     ! Attributes.value (HTML.toValue True)
+                                         HTML.button ! Attributes.type_ "submit" $ do
+                                           "done"
 
     get "/admin" $ do
         todos <- Scotty.liftIO $
@@ -179,35 +201,31 @@ server conn Options.Options { staticDir, reqLogger } = do
 
                 HTML.ul $ do
                     for_ todos $ \ToDo {id, todo, done_date} -> do
-                        HTML.li ! Attributes.id ("todo-" <> HTML.toValue id) $ do
-                            HTML.div ! Attributes.class_ "flex-container" $ do
+                        HTML.li ! Attributes.id ("todo-" <> HTML.toValue id)
+                                ! Attributes.class_ "flex-container" $ do
 
-                                HTML.a ! Attributes.name (HTML.toValue ("todo: " <> show id))
-                                       ! Attributes.href ("/" <> HTML.toValue id)
-                                       $ case done_date of
-                                           Just _  -> (HTML.s (HTML.toMarkup todo))
-                                           Nothing -> HTML.toMarkup todo
+                                   HTML.a ! Attributes.name (HTML.toValue ("todo: " <> show id))
+                                          ! Attributes.href ("/" <> HTML.toValue id)
+                                          $ case done_date of
+                                              Just _  -> (HTML.s (HTML.toMarkup todo))
+                                              Nothing -> HTML.toMarkup todo
 
-                                HTML.button ! Attributes.value (HTML.toValue id)
-                                            ! Attributes.onclick "deleteToDo(this)"
-                                            $ "delete"
+                                   HTML.button ! Attributes.value (HTML.toValue id)
+                                               ! Attributes.onclick "deleteToDo(this)"
+                                               $ "delete"
 
-                                HTML.form
-                                  ! Attributes.action "/resurrect"
-                                  ! Attributes.method "post" $ do
-                                     HTML.input  ! Attributes.type_ "hidden"
-                                                 ! Attributes.name "id"
-                                                 ! Attributes.value (HTML.toValue id)
-                                     HTML.button ! Attributes.style "background-color: green;"
-                                                 ! Attributes.type_ "submit" $ "toggle done"
+                                   HTML.form
+                                     ! Attributes.action ("/" <> HTML.toValue id <> "?next=%2F")
+                                     ! Attributes.method "post" $ do
+                                        HTML.input  ! Attributes.type_ "hidden"
+                                                    ! Attributes.name "done"
+                                                    ! Attributes.value (HTML.toValue False)
+                                        HTML.button ! Attributes.type_ "submit" $ do
+                                          "resurrect"
 
-                                     doneCheckbox id (done_date /= Nothing)
-
-                                     HTML.label  ! Attributes.for (doneCheckboxID id)
-                                       $ case done_date of
-                                           Just datetime -> HTML.toMarkup
-                                                            $ "done on " <> show datetime
-                                           Nothing       -> "not done"
+                                   HTML.p $ case done_date of
+                                     Just datetime -> HTML.toMarkup $ "done on " <> show datetime
+                                     Nothing       -> "not done"
 
 
                 HTML.form ! Attributes.action "/" ! Attributes.method "post" $ do
@@ -244,6 +262,39 @@ server conn Options.Options { staticDir, reqLogger } = do
             Nothing -> ("/" <> Text.Lazy.pack (show id))
             Just p  -> Text.Lazy.Encoding.decodeUtf8 $ ByteString.Lazy.fromStrict $ URI.urlDecode False p
 
+    get "/logout" $ do
+        Scotty.status Status.status401
+
+        Scotty.setHeader "WWW-Authenticate" "Basic realm=\"Default\""
+
+    post "/signup" $ do
+        username :: Text.Text <- Scotty.formParam "username"
+        password :: ByteString.ByteString <- Scotty.formParam "password"
+        hashed_password <- Scotty.liftIO $ BCrypt.hashPassword 12 password 
+        Scotty.liftIO $
+            DB.executeNamed conn [sql|insert into users (name, password_hash)
+                                      values (:username, :hashed_password);|]
+                [ ":username" := username 
+                , ":hashed_password" := Text.Encoding.decodeUtf8 hashed_password
+                ]
+
+        Scotty.redirect "/"
+
+    get "/signup" $ do
+        Scotty.html $ renderHtml $ HTML.docTypeHtml $ do
+            headTag "<< Signup Page >>"
+ 
+            HTML.body $ do
+                HTML.h1 "Signup Page"
+ 
+                HTML.form ! Attributes.class_ "signup-form"
+                          ! Attributes.action "/signup"
+                          ! Attributes.method "post" $ do
+                    HTML.label ! Attributes.for "username" $ "username:"
+                    HTML.input ! Attributes.type_ "text" ! Attributes.name "username"
+                    HTML.label ! Attributes.for "password" $ "password:"
+                    HTML.input ! Attributes.type_ "password" ! Attributes.name "password"
+                    HTML.input ! Attributes.type_ "submit" ! Attributes.value "signup"
 
     delete "/:id" $ do
         id <- Scotty.captureParam "id"
