@@ -52,6 +52,8 @@ import Text.Blaze.Html.Renderer.Utf8 qualified as HTMLBS
 import UnliftIO.Exception qualified as Exception
 import Web.Scotty qualified as Scotty
 
+import Migration qualified 
+
 data ToDo = ToDo { id :: Int
                  , todo :: Text.Text
                  , done_date :: Maybe UTCTime
@@ -118,11 +120,7 @@ main = do
 
     DB.withConnection db $ \conn -> do
 
-        DB.execute_ conn [sql|create table if not exists todos
-                            ( id INTEGER primary key autoincrement
-                            , todo TEXT
-                            , done_date TEXT -- can add a check constraint: date time fmt
-                            );|] -- between [sql| ... |] is a quasi-quoter, this is SQL not Haskell
+        Migration.run conn
 
         let opts = Scotty.defaultOptions { Scotty.settings = settings port }
 
