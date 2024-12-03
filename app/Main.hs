@@ -128,7 +128,24 @@ main = do
 
 authSettings :: HttpAuth.AuthSettings
 authSettings = "Default"
-  { HttpAuth.authIsProtected = \req -> return (Wai.pathInfo req /= ["signup"]) }
+  { HttpAuth.authIsProtected = \req -> return (Wai.pathInfo req /= ["signup"])
+  , HttpAuth.authOnNoAuth = \realm req respond -> 
+      if Wai.pathInfo req /= ["login"]
+      then
+        respond $ Wai.responseLBS
+          Status.status301
+          [ ("content-type", "text/plain")
+          , ("Location", "/signup")
+          ]
+          "Please sign up" 
+      else
+        respond $ Wai.responseLBS
+          Status.status401
+          [ ("content-type", "text/plain")
+          , ("WWW-Authenticate", "Basic realm=\"" <> realm <> "\"")
+          ]
+          "Basic authentication is required"
+  }
 
 server :: (HasCallStack) => DB.Connection -> Options.Options -> Scotty.ScottyM ()
 server conn Options.Options { staticDir, reqLogger } = do
@@ -141,8 +158,12 @@ server conn Options.Options { staticDir, reqLogger } = do
 
       case users of
         [] -> return False
+
         (User {userPassword_hash}:_) ->
           return $ BCrypt.validatePassword p (Text.Encoding.encodeUtf8 userPassword_hash)
+
+    get "/login" $ do
+        Scotty.redirect "/"
 
     get "/" $ do
 
@@ -280,11 +301,15 @@ server conn Options.Options { staticDir, reqLogger } = do
 
     get "/signup" $ do
         Scotty.html $ renderHtml $ HTML.docTypeHtml $ do
-            headTag "<< Signup Page >>"
+            headTag "<< Signup >>"
  
             HTML.body $ do
-                HTML.h1 "Signup Page"
+                HTML.h1 "Signup"
  
+                HTML.span $ do
+                    HTML.p "or"
+                    HTML.a ! Attributes.href "/login" $ "Login"
+
                 HTML.form ! Attributes.class_ "signup-form"
                           ! Attributes.action "/signup"
                           ! Attributes.method "post" $ do
