@@ -156,11 +156,10 @@ server conn Options.Options { staticDir, reqLogger } = do
                      from users where name=:username ;|]
                      [ ":username" := Text.Encoding.decodeUtf8 u ] :: IO [User]
 
-      case users of
-        [] -> return False
+      let pred =
+            (\u -> BCrypt.validatePassword p (Text.Encoding.encodeUtf8 (userPassword_hash u)))
 
-        (User {userPassword_hash}:_) ->
-          return $ BCrypt.validatePassword p (Text.Encoding.encodeUtf8 userPassword_hash)
+      return $ any pred users
 
     get "/login" $ do
         Scotty.redirect "/"
