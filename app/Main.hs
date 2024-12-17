@@ -69,7 +69,7 @@ data ToDo = ToDo { id :: Int
 data User = User { userId :: Int
                  , userName :: Text.Text
                  , userPassword_hash :: Text.Text
-                 -- , userPassword_hash :: ByteString.ByteString
+                 , userAuthorized_date :: Maybe UTCTime
                  }
                  deriving (Generic, FromRow, Show)
 
@@ -152,14 +152,16 @@ server conn Options.Options { staticDir, reqLogger } = do
     Scotty.middleware reqLogger
     Scotty.middleware $ staticPolicy (noDots >-> addBase staticDir)
     Scotty.middleware $ flip HttpAuth.basicAuth authSettings $ \u p -> do
-      users <- DB.queryNamed conn [sql|select user_id, name, password_hash
+      users <- DB.queryNamed conn [sql|select user_id, name, password_hash, authorized_date
                      from users where name=:username ;|]
                      [ ":username" := Text.Encoding.decodeUtf8 u ] :: IO [User]
 
-      let pred =
+      let validPasswd =
             (\u -> BCrypt.validatePassword p (Text.Encoding.encodeUtf8 (userPassword_hash u)))
+          authorized =
+            (\u -> userAuthorized_date u /= Nothing)
 
-      return $ any pred users
+      return $ any (\u -> authorized u && validPasswd u) users
 
     get "/login" $ do
         Scotty.redirect "/"
