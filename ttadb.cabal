@@ -32,7 +32,7 @@ executable ttadb
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
     build-depends:    aeson,
-                      base ^>=4.16,
+                      base,
                       blaze-html ^>= 0.9,
                       bytestring ^>=0.11,
                       crypton ^>=1.0.0,
@@ -50,3 +50,4 @@ executable ttadb
 
     hs-source-dirs:   app
     default-language: Haskell2010
+    ghc-options: -threaded
